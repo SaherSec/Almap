@@ -990,6 +990,48 @@ fn main() {
     expect(webui::find_substring(whtml, "ALmap Web UI") >= 0, "webui html title");
     expect(webui::find_substring(whtml, "/api/scan") >= 0, "webui html scan js");
     expect(webui::find_substring(whtml, "/api/status") >= 0, "webui html status js");
+    expect(webui::find_substring(whtml, "Authorization") >= 0, "webui html sends token");
+    expect(webui::find_substring(whtml, "plugins/") < 0, "webui html offers names, not paths");
+
+    // Web UI access control.
+    expect(webui::default_bind() == "127.0.0.1", "webui binds loopback by default");
+    var hv: u8[>..] = [];
+    expect(webui::header_value("GET / HTTP/1.1\r\nhOsT:  127.0.0.1:8080 \r\nX: y\r\n\r\n", "Host", hv) && hv == "127.0.0.1:8080", "webui header_value case-insensitive, trimmed");
+    var hv2: u8[>..] = [];
+    expect(!webui::header_value("POST / HTTP/1.1\r\nA: b\r\n\r\nHost: evil", "Host", hv2), "webui header_value ignores the body");
+    var hv3: u8[>..] = [];
+    expect(!webui::header_value("GET /Host: x HTTP/1.1\r\n\r\n", "Host", hv3), "webui header_value ignores the request line");
+    expect(webui::host_allowed("127.0.0.1:8080", 8080), "webui host loopback ok");
+    expect(webui::host_allowed("localhost:8080", 8080) && webui::host_allowed("LOCALHOST:8080", 8080), "webui host localhost ok");
+    expect(webui::host_allowed("192.168.1.5:8080", 8080), "webui host LAN IP literal ok");
+    expect(!webui::host_allowed("evil.example:8080", 8080), "webui host name refused (DNS rebinding)");
+    expect(!webui::host_allowed("127.0.0.1.evil.example:8080", 8080), "webui host IP-looking name refused");
+    expect(!webui::host_allowed("127.0.0.1:9999", 8080), "webui host wrong port refused");
+    expect(!webui::host_allowed("127.0.0.1", 8080), "webui host missing port refused");
+    expect(webui::host_allowed("127.0.0.1", 80), "webui host no port ok on 80");
+    expect(!webui::host_allowed("", 8080), "webui empty host refused");
+    expect(webui::origin_allowed("http://127.0.0.1:8080", "127.0.0.1:8080"), "webui same origin ok");
+    expect(!webui::origin_allowed("http://evil.example", "127.0.0.1:8080"), "webui cross origin refused");
+    expect(!webui::origin_allowed("null", "127.0.0.1:8080"), "webui null origin refused");
+    expect(!webui::origin_allowed("https://127.0.0.1:8080", "127.0.0.1:8080"), "webui https origin refused");
+    expect(webui::token_equal("abc123", "abc123"), "webui token equal");
+    expect(!webui::token_equal("abc123", "abc124") && !webui::token_equal("abc", "abc123") && !webui::token_equal("", ""), "webui token unequal / empty");
+    let tok = "0123456789abcdef0123456789abcdef";
+    expect(webui::check_access("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nAuthorization: Bearer 0123456789abcdef0123456789abcdef\r\n\r\n", "/api/status", 8080, tok) == 0, "webui access ok with token");
+    expect(webui::check_access("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nauthorization: bearer 0123456789abcdef0123456789abcdef\r\n\r\n", "/api/status", 8080, tok) == 0, "webui access header/scheme case-insensitive");
+    expect(webui::check_access("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8080\r\n\r\n", "/api/status", 8080, tok) == 401, "webui api without token 401");
+    expect(webui::check_access("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nAuthorization: Bearer 0123456789abcdef0123456789abcdee\r\n\r\n", "/api/status", 8080, tok) == 401, "webui api wrong token 401");
+    expect(webui::check_access("POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1:8080\r\n\r\n{\"Authorization\": \"Bearer 0123456789abcdef0123456789abcdef\"}", "/api/scan", 8080, tok) == 401, "webui token in body ignored");
+    expect(webui::check_access("GET / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\n\r\n", "/", 8080, tok) == 0, "webui index needs no token");
+    expect(webui::check_access("GET / HTTP/1.1\r\nHost: evil.example:8080\r\n\r\n", "/", 8080, tok) == 403, "webui bad host 403 even on index");
+    expect(webui::check_access("GET / HTTP/1.1\r\n\r\n", "/", 8080, tok) == 403, "webui missing host 403");
+    expect(webui::check_access("POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nOrigin: http://evil.example\r\nAuthorization: Bearer 0123456789abcdef0123456789abcdef\r\n\r\n", "/api/scan", 8080, tok) == 403, "webui cross-origin with token still 403");
+    expect(webui::valid_plugin_name("http_title") && webui::valid_plugin_name("smb-vuln-ms17-010-full") && webui::valid_plugin_name("http_title.so"), "webui plugin names ok");
+    expect(!webui::valid_plugin_name("plugins/http_title.so"), "webui plugin relative path refused");
+    expect(!webui::valid_plugin_name("/tmp/evil.so"), "webui plugin absolute path refused");
+    expect(!webui::valid_plugin_name("../evil") && !webui::valid_plugin_name("a..b"), "webui plugin dotdot refused");
+    expect(!webui::valid_plugin_name(".hidden") && !webui::valid_plugin_name("-x") && !webui::valid_plugin_name(""), "webui plugin bad first char / empty refused");
+    expect(!webui::valid_plugin_name("a b") && !webui::valid_plugin_name("a\\b") && !webui::valid_plugin_name("a%2fb"), "webui plugin odd chars refused");
 
     print("all tests passed");
 }

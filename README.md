@@ -100,7 +100,7 @@ sudo setcap cap_net_raw+ep ./almap
 | `--workers <n>` | Thread-pool size (default 10) |
 | `--retries <n>` | Extra attempts after a timeout in `--fast` (0–10, default 3) |
 | `--json` / `--table` / `--xml` | Structured output |
-| `--web` / `--ui` `[--web-port N]` | Start the Web UI (default port 8080) |
+| `--web` / `--ui` `[--web-port N]` `[--web-bind IP]` | Start the Web UI (default `127.0.0.1:8080`; API calls need the printed token) |
 
 Run `./almap --help` for every flag and its rules. The full guide is in **[docs/GUIDE.md](docs/GUIDE.md)**.
 
@@ -148,10 +148,14 @@ Data you import from Nmap stays under Nmap's license.
 ## Web UI
 
 ```sh
-./almap --web            # http://127.0.0.1:8080
+./almap --web                          # listens on 127.0.0.1:8080
+# open: http://127.0.0.1:8080/#token=3f9c…   (open this exact URL)
+./almap --web --web-bind 0.0.0.0        # all interfaces (prints a warning)
 ```
 
-> **Security note:** In v5.0.0 the Web UI listens on all interfaces and has no authentication. Anyone who can reach the port can run scans as the user running ALmap. Run it only on a trusted machine, behind a firewall, and never as root on a shared network. Binding to localhost and token authentication are planned for the next release.
+At startup the server prints a random API token. The page reads it from the URL fragment, and every `/api/` call must send it as `Authorization: Bearer <token>`. The server also refuses requests whose `Host` is not `localhost` or an IP address on its port (this blocks DNS rebinding), and requests whose `Origin` is not its own. The API's `script` field takes a plugin **name** such as `http_title`, never a path. Only a `.so` file directly inside `plugins/` next to the binary is loaded.
+
+> **Security note:** Anyone who has the token can run scans, and plugins run as the user running ALmap. With `--web-bind 0.0.0.0`, the token travels over plain HTTP. Avoid running the Web UI as root on a shared network.
 
 ## ALmap and Nmap
 
@@ -167,7 +171,8 @@ Use Nmap when you need its huge script library, full IPv6 coverage, or Windows a
 
 ## Roadmap
 
-- [ ] Web UI bound to `127.0.0.1` by default, with token auth and a plugin allowlist
+- [x] Web UI bound to `127.0.0.1` by default, with token auth, Host/Origin checks and plugin-name-only `script`
+- [ ] HTTPS for the Web UI when it is bound beyond localhost
 - [ ] Published benchmarks against Nmap, masscan and RustScan
 - [ ] More AlScript plugins
 - [ ] Next.js dashboard (see [WEB_UI_PLAN.md](almap/WEB_UI_PLAN.md))

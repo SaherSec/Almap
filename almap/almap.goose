@@ -77,7 +77,7 @@ fn print_help() {
     print("       almap -iL <file> -p <ports> [--scan <connect|syn|udp>] [--timeout <ms>] [--workers <n>] [--retries <n>] [--rate <n>] [--fast] [-f] [--mtu <size>] [-D <ip1,ip2,...>] [--spoof-mac <mac>] [--script <so>] [--sigdb <path>] [--osdb <path>] [--json] [--table] [--xml] [--banners] [--service] [--os] [-sU] [--help]");
     print("       almap -t <targets> --discover [--timeout <ms>] [--workers <n>] [--json] [--table] [--xml] [--help]");
     print("       almap -iL <file> --discover [--timeout <ms>] [--workers <n>] [--json] [--table] [--xml] [--help]");
-    print("       almap --web [--web-port <port>] | almap --ui [--web-port <port>]");
+    print("       almap --web [--web-port <port>] [--web-bind <ipv4>] | almap --ui [...]");
     print("");
     print("Flags:");
     print("  -t <targets>     IPv4/IPv6/CIDR or comma-separated mixed list, up to 64,");
@@ -118,6 +118,8 @@ fn print_help() {
     print("  --web            Start Web UI HTTP server (default port 8080; Zenmap Killer)");
     print("  --ui             Alias for --web");
     print("  --web-port <port> Web UI listen port (1..65535, default 8080)");
+    print("  --web-bind <ipv4> Web UI listen address (default 127.0.0.1; 0.0.0.0 = all");
+    print("                   interfaces). API calls need the token printed at startup");
     print("  --help, -h       Show this help and exit 0");
     print("");
     print("IPv6: -t/-iL accept plain IPv6 like ::1 or 2001:db8::/120.");
@@ -262,6 +264,9 @@ fn main() {
     var web = false;
     var web_port = 8080;
     var have_web_port = false;
+    var web_bind_buf: u8[16] = [0; 16];
+    var web_bind_len: i64 = 0;
+    var have_web_bind = false;
     var idx = 1;
     while idx < argv.len {
         let a = argv[idx];
@@ -634,7 +639,35 @@ fn main() {
             idx += 2;
             continue;
         }
+        if a == "--web-bind" {
+            if idx + 1 >= argv.len {
+                print("error: --web-bind requires a value (IPv4 address)");
+                print_help();
+                exit(2);
+            }
+            let barg = argv[idx + 1];
+            let _bip, bok = target::parse_ipv4(barg);
+            if !bok || barg.len > 15 || barg != trim(barg) {
+                print("error: invalid --web-bind '", barg, "' (expected an IPv4 address, e.g. 127.0.0.1 or 0.0.0.0)");
+                print_help();
+                exit(2);
+            }
+            var bi: i64 = 0;
+            while bi < barg.len {
+                web_bind_buf[bi] = barg[bi];
+                bi++;
+            }
+            web_bind_len = barg.len;
+            have_web_bind = true;
+            idx += 2;
+            continue;
+        }
         print("error: unknown flag '", a, "'");
+        print_help();
+        exit(2);
+    }
+    if (have_web_port || have_web_bind) && !web {
+        print("error: --web-port and --web-bind need --web");
         print_help();
         exit(2);
     }
@@ -649,7 +682,12 @@ fn main() {
             print_help();
             exit(2);
         }
-        let started = webui::serve(web_port);
+        var started = false;
+        if have_web_bind {
+            started = webui::serve(web_port, web_bind_buf[..web_bind_len]);
+        } else {
+            started = webui::serve(web_port, webui::default_bind());
+        }
         if !started {
             exit(1);
         }

@@ -1,10 +1,15 @@
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700 /* realpath */
 #endif
 
 #include "http.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -106,12 +111,28 @@ static int has_content_length(const unsigned char *buf, int header_len,
     return 0;
 }
 
-int almap_http_listen(int port) {
+static void set_cloexec(int fd) {
+    int flags = fcntl(fd, F_GETFD);
+
+    if (flags >= 0) {
+        (void)fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+    }
+}
+
+/* bind_addr is a dotted IPv4 address; NULL or "" means 127.0.0.1. */
+int almap_http_listen(const char *bind_addr, int port) {
     int fd;
     int opt = 1;
     struct sockaddr_in addr;
+    struct in_addr ip;
 
     if (port < 1 || port > 65535) {
+        return -1;
+    }
+    if (bind_addr == NULL || bind_addr[0] == '\0') {
+        bind_addr = "127.0.0.1";
+    }
+    if (inet_pton(AF_INET, bind_addr, &ip) != 1) {
         return -1;
     }
     /* A closed client must not kill the server. send() also uses
@@ -122,13 +143,14 @@ int almap_http_listen(int port) {
     if (fd < 0) {
         return -1;
     }
+    set_cloexec(fd);
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0) {
         close(fd);
         return -1;
     }
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(0); /* INADDR_ANY */
+    addr.sin_addr = ip;
     addr.sin_port = htons((unsigned short)port);
     if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
         close(fd);
@@ -150,6 +172,8 @@ int almap_http_accept(int listen_fd) {
     for (;;) {
         client = accept(listen_fd, NULL, NULL);
         if (client >= 0) {
+            /* The scan child must not inherit the listener or clients. */
+            set_cloexec(client);
             return client;
         }
         if (errno == EINTR) {
@@ -261,6 +285,133 @@ int almap_http_self_exe(unsigned char *buf, int cap) {
     }
     buf[n] = '\0';
     return (int)n;
+}
+
+/* 16 random bytes from /dev/urandom as 32 lowercase hex chars + NUL. */
+int almap_http_random_token(unsigned char *buf, int cap) {
+    static const char hex[] = "0123456789abcdef";
+    unsigned char raw[16];
+    size_t got = 0;
+    int fd;
+    int i;
+
+    if (buf == NULL || cap < 33) {
+        return -1;
+    }
+    fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -1;
+    }
+    while (got < sizeof(raw)) {
+        ssize_t n = read(fd, raw + got, sizeof(raw) - got);
+
+        if (n < 0 && errno == EINTR) {
+            continue;
+        }
+        if (n <= 0) {
+            close(fd);
+            return -1;
+        }
+        got += (size_t)n;
+    }
+    close(fd);
+    for (i = 0; i < 16; i++) {
+        buf[2 * i] = (unsigned char)hex[raw[i] >> 4];
+        buf[2 * i + 1] = (unsigned char)hex[raw[i] & 15u];
+    }
+    buf[32] = '\0';
+    return 32;
+}
+
+/* A plugin name is 1..128 chars of [A-Za-z0-9_.-], starts with an
+ * alphanumeric, has no "..", and may end in ".so". */
+static int plugin_name_ok(const char *name) {
+    size_t i;
+    size_t len;
+
+    if (name == NULL) {
+        return 0;
+    }
+    len = strlen(name);
+    if (len == 0 || len > 128) {
+        return 0;
+    }
+    if (!((name[0] >= 'a' && name[0] <= 'z') ||
+          (name[0] >= 'A' && name[0] <= 'Z') ||
+          (name[0] >= '0' && name[0] <= '9'))) {
+        return 0;
+    }
+    for (i = 0; i < len; i++) {
+        char c = name[i];
+
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.')) {
+            return 0;
+        }
+    }
+    return strstr(name, "..") == NULL;
+}
+
+/*
+ * Resolve a plugin name to <dir of this executable>/plugins/<name>.so.
+ * The resolved real path must be a regular file directly inside the
+ * real plugins directory (symlinks pointing elsewhere are refused).
+ * Returns the path length, -1 for an invalid name, -2 if the plugin
+ * does not exist or resolves outside plugins/.
+ */
+int almap_http_resolve_plugin(const char *name, unsigned char *out, int cap) {
+    char exe[PATH_MAX];
+    char dir[PATH_MAX];
+    char real_dir[PATH_MAX];
+    char cand[PATH_MAX];
+    char real_cand[PATH_MAX];
+    char *slash;
+    size_t nlen;
+    size_t dlen;
+    struct stat st;
+    int n;
+
+    if (out == NULL || cap < 2) {
+        return -1;
+    }
+    out[0] = '\0';
+    if (!plugin_name_ok(name)) {
+        return -1;
+    }
+    nlen = strlen(name);
+    if (nlen > 3 && strcmp(name + nlen - 3, ".so") == 0) {
+        nlen -= 3;
+    }
+    if (realpath("/proc/self/exe", exe) == NULL) {
+        return -2;
+    }
+    slash = strrchr(exe, '/');
+    if (slash == NULL) {
+        return -2;
+    }
+    *slash = '\0';
+    n = snprintf(dir, sizeof(dir), "%s/plugins", exe);
+    if (n < 0 || (size_t)n >= sizeof(dir) || realpath(dir, real_dir) == NULL) {
+        return -2;
+    }
+    n = snprintf(cand, sizeof(cand), "%s/%.*s.so", real_dir, (int)nlen, name);
+    if (n < 0 || (size_t)n >= sizeof(cand) || realpath(cand, real_cand) == NULL) {
+        return -2;
+    }
+    dlen = strlen(real_dir);
+    if (strncmp(real_cand, real_dir, dlen) != 0 || real_cand[dlen] != '/' ||
+        strchr(real_cand + dlen + 1, '/') != NULL) {
+        return -2;
+    }
+    if (stat(real_cand, &st) != 0 || !S_ISREG(st.st_mode)) {
+        return -2;
+    }
+    n = (int)strlen(real_cand);
+    if (n >= cap) {
+        return -2;
+    }
+    memcpy(out, real_cand, (size_t)n + 1);
+    return n;
 }
 
 int almap_http_run_scan(const char *targets, const char *ports,

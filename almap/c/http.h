@@ -71,12 +71,14 @@ extern "C" {
  * spawns full ALmap scans with the server process privileges.
  */
 
-int almap_http_listen(int port);
+int almap_http_listen(const char *bind_addr, int port);
 int almap_http_accept(int listen_fd);
 int almap_http_read(int client_fd, unsigned char *buf, int cap);
 int almap_http_send(int client_fd, const unsigned char *buf, int len);
 int almap_http_close(int fd);
 int almap_http_self_exe(unsigned char *buf, int cap);
+int almap_http_random_token(unsigned char *buf, int cap);
+int almap_http_resolve_plugin(const char *name, unsigned char *out, int cap);
 int almap_http_run_scan(const char *targets, const char *ports,
                         const char *scan_type, int fast, int os_flag,
                         int service_flag, int evasion_flag,

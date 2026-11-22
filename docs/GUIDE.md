@@ -74,10 +74,12 @@ auditable, Linux-native core and a full Nmap-scale data plane.
   API: `GET /api/status`, `POST /api/scan` (with `script` field).
   ```sh
   # Copy-paste: launch the Web UI on 8080
-  ./almap --web
-  curl http://127.0.0.1:8080/api/status
-  curl -X POST http://127.0.0.1:8080/api/scan -H 'Content-Type: application/json' \
-    -d '{"targets":"127.0.0.1","ports":"80,443","scan_type":"connect","script":"plugins/http_title.so"}'
+  ./almap --web            # prints "API token: <token>"
+  TOKEN=<token from the startup output>
+  curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/status
+  curl -X POST http://127.0.0.1:8080/api/scan -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' \
+    -d '{"targets":"127.0.0.1","ports":"80,443","scan_type":"connect","script":"http_title"}'
   ```
 
 
@@ -419,8 +421,9 @@ JSON/XML.
 
 ALmap ships a lightweight, dependency-free Web UI in the same binary.
 It is activated with `--web` (alias `--ui`) and serves a dark-mode
-single-page frontend plus a JSON API on port 8080 (override with
-`--web-port <port>` or `--web <port>`). The server uses native C
+single-page frontend plus a JSON API on `127.0.0.1:8080` (override the
+port with `--web-port <port>` or `--web <port>`, and the address with
+`--web-bind <ipv4>`, for example `0.0.0.0` for all interfaces). The server uses native C
 sockets (`c/http.c`); Goose (`modules/webui.goose`) owns routing, HTML
 generation, JSON parsing, and validation, mirroring the CLI rules.
 
@@ -431,9 +434,17 @@ generation, JSON parsing, and validation, mirroring the CLI rules.
 ./almap --web --web-port 18081
 # Alias.
 ./almap --ui --web-port 18081
+# Listen on all interfaces (prints a warning).
+./almap --web --web-bind 0.0.0.0
 ```
 
-Then open `http://127.0.0.1:8080/` in a browser. The page has a form
+### Access control
+
+- **Token.** At startup the server prints a random 128-bit API token and a URL of the form `http://127.0.0.1:8080/#token=<token>`. Every `/api/` request must send `Authorization: Bearer <token>`, or it gets 401. The page reads the token from the URL fragment, keeps it in `sessionStorage` and removes it from the address bar. A new token is made at each start.
+- **Host and Origin.** Every request needs a `Host` header that is `localhost` or an IPv4 address with the listening port. Hostnames are refused (403), which blocks DNS rebinding. A request that carries an `Origin` header other than `http://<Host>` is refused (403), which blocks cross-site requests from other pages.
+- **Plugins.** The `script` field takes a plugin name (`http_title` or `http_title.so`). Paths, `..` and unknown names are refused (400). The name is resolved to `<directory of the almap binary>/plugins/<name>.so`, and only a regular file directly inside that directory is used, so a symlink that points elsewhere is refused.
+
+Then open the URL printed at startup in a browser. The page has a form
 for targets and ports, a scan-type select (Connect, SYN, UDP,
 Discovery), toggles for Fast (async engine), OS fingerprinting,
 Service detection, and Evasion, a timeout field, and a terminal-like
@@ -443,30 +454,37 @@ on submit.
 ### API
 
 ```sh
+TOKEN=<token printed at startup>
+AUTH="Authorization: Bearer $TOKEN"
+
 # Health check.
-curl http://127.0.0.1:8080/api/status
-# {"status":"ok","version":"4.0.0","service":"almap-web"}
+curl -H "$AUTH" http://127.0.0.1:8080/api/status
+# {"status":"ok","version":"5.0.0","service":"almap-web"}
 
 # Connect scan: returns ALmap's --json output.
-curl -X POST http://127.0.0.1:8080/api/scan \
+curl -X POST http://127.0.0.1:8080/api/scan -H "$AUTH" \
   -H 'Content-Type: application/json' \
   -d '{"targets":"127.0.0.1","ports":"80,443","scan_type":"connect","timeout":1000}'
 
 # Discovery, Fast, OS, Service, and Evasion flags.
-curl -X POST http://127.0.0.1:8080/api/scan -H 'Content-Type: application/json' \
+curl -X POST http://127.0.0.1:8080/api/scan -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"targets":"192.168.1.0/24","scan_type":"discovery","timeout":500}'
-curl -X POST http://127.0.0.1:8080/api/scan -H 'Content-Type: application/json' \
+curl -X POST http://127.0.0.1:8080/api/scan -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"targets":"127.0.0.1","ports":"80","scan_type":"connect","fast":true}'
+# A plugin, by name.
+curl -X POST http://127.0.0.1:8080/api/scan -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"targets":"127.0.0.1","ports":"80","scan_type":"connect","script":"http_title"}'
 ```
 
 `POST /api/scan` accepts `targets` (required), `ports` (required
 unless discovery), `scan_type` (`connect` default, `syn`, `udp`,
-`discovery`), `fast`, `os`, `service`, `evasion`, `discover`, and
-`timeout` (ms). It validates flag combinations exactly like the CLI
+`discovery`), `fast`, `os`, `service`, `evasion`, `discover`,
+`timeout` (ms), `retries`, and `script` (a plugin name). It validates flag combinations exactly like the CLI
 (for example, `fast` needs `connect`, `os` needs `syn`) and spawns
 the ALmap binary as a child with `--json`, returning its JSON result
-on success (200) or `{"error":"..."}` on failure (400/500). Unknown
-paths return 404. The server is sequential (one request at a time)
+on success (200) or `{"error":"..."}` on failure (400/500). A missing
+or wrong token returns 401; a foreign `Host` or `Origin` returns 403.
+Unknown paths return 404. The server is sequential (one request at a time)
 and inherits the server process privileges, so SYN/UDP/OS scans still
 need root or `CAP_NET_RAW`.
 

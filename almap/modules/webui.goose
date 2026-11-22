@@ -18,6 +18,13 @@ namespace webui;
 //                        --json and returns its JSON result.
 //   else              -> 404 JSON
 //
+// Access control (every request): the Host header must be localhost or
+// an IPv4 literal with the listening port (blocks DNS rebinding); an
+// Origin header, when sent, must be http://<Host> (blocks cross-site
+// requests). Every /api/ route also needs "Authorization: Bearer
+// <token>"; the random token is printed at startup. The server binds
+// 127.0.0.1 unless --web-bind says otherwise.
+//
 // Scan request JSON (all keys optional except targets/ports):
 //   "targets":   comma list, e.g. "127.0.0.1" (required)
 //   "ports":     ports string, e.g. "80,443" (required unless discovery)
@@ -29,7 +36,8 @@ namespace webui;
 //   "discover":  bool --discover (sets discovery when true)
 //   "timeout":   int ms 1..60000 (default 1000)
 //   "retries":   int 0..10 (default 3; extra --fast timeout retries)
-//   "script":    AlScript .so path (optional)
+//   "script":    plugin NAME from the plugins/ directory next to the
+//                binary, e.g. "http_title" (optional; paths rejected)
 //
 // Validation mirrors the CLI in almap.goose: fast requires connect and
 // cannot combine with service/evasion/os; os requires syn; service
@@ -43,12 +51,14 @@ namespace webui;
 // uint8_t*); slices cross as {data,len} and do not match the C
 // pointer signatures, so callers pass buf[0] with an explicit cap.
 
-extern fn almap_http_listen(port: i32) -> i32;
+extern fn almap_http_listen(bind_addr: const u8&, port: i32) -> i32;
 extern fn almap_http_accept(listen_fd: i32) -> i32;
 extern fn almap_http_read(client_fd: i32, buf: u8&, cap: i32) -> i32;
 extern fn almap_http_send(client_fd: i32, buf: const u8&, len: i32) -> i32;
 extern fn almap_http_close(fd: i32) -> i32;
 extern fn almap_http_self_exe(buf: u8&, cap: i32) -> i32;
+extern fn almap_http_random_token(buf: u8&, cap: i32) -> i32;
+extern fn almap_http_resolve_plugin(name: const u8&, out: u8&, cap: i32) -> i32;
 extern fn almap_http_run_scan(targets: const u8&, ports: const u8&, scan_type: const u8&, fast: i32, os_flag: i32, service_flag: i32, evasion_flag: i32, discover_flag: i32, timeout_ms: i32, retries: i32, script: const u8&, out: u8&, cap: i32, exit_code: i32&) -> i32;
 
 fn version_string() -> const u8[:] {
@@ -139,6 +149,123 @@ fn parse_request_line(req: const u8[:], method_out: u8[>..]&, path_out: u8[>..]&
     if parts.len < 2 { return false; }
     method_out.append(parts[0]);
     path_out.append(parts[1]);
+    return true;
+}
+
+fn lower_byte(c: u8) -> u8 {
+    if c >= 'A' && c <= 'Z' { return c + 32; }
+    return c;
+}
+
+fn eq_ci(a: const u8[:], b: const u8[:]) -> bool {
+    if a.len != b.len { return false; }
+    var i: i64 = 0;
+    while i < a.len {
+        if lower_byte(a[i]) != lower_byte(b[i]) { return false; }
+        i++;
+    }
+    return true;
+}
+
+// Value of the first header called `name` (case-insensitive), trimmed.
+// Only the header block (after the request line, before the blank
+// line) is searched, so a body cannot inject headers.
+fn header_value(req: const u8[:], name: const u8[:], out: u8[>..]&) -> bool {
+    var end = find_substring(req, "\r\n\r\n");
+    if end < 0 { end = find_substring(req, "\n\n"); }
+    if end < 0 { end = req.len; }
+    let first_nl = position(req[..end], '\n');
+    if first_nl < 0 { return false; }
+    var i = first_nl + 1;
+    while i < end {
+        var j = i;
+        while j < end && req[j] != '\n' { j++; }
+        var k = j;
+        if k > i && req[k - 1] == '\r' { k--; }
+        let colon = position(req[i..k], ':');
+        if colon > 0 && eq_ci(trim(req[i..i + colon]), name) {
+            out.append(trim(req[i + colon + 1..k]));
+            return true;
+        }
+        i = j + 1;
+    }
+    return false;
+}
+
+fn is_alnum(c: u8) -> bool {
+    if c >= 'a' && c <= 'z' { return true; }
+    if c >= 'A' && c <= 'Z' { return true; }
+    if c >= '0' && c <= '9' { return true; }
+    return false;
+}
+
+// Host must be "localhost" or an IPv4 literal, with ":<port>" (or no
+// port only when port is 80). Hostnames are refused: a DNS-rebinding
+// page always arrives with the attacker's hostname in Host.
+fn host_allowed(host: const u8[:], port: i64) -> bool {
+    if host.len == 0 || host.len > 255 { return false; }
+    var name_end = host.len;
+    let colon = position(host, ':');
+    if colon >= 0 {
+        let p, ok = parse_port(host[colon + 1..]);
+        if !ok || p != port { return false; }
+        name_end = colon;
+    } else if port != 80 {
+        return false;
+    }
+    let name = host[..name_end];
+    if eq_ci(name, "localhost") { return true; }
+    if name.len == 0 || name[0] < '0' || name[0] > '9' { return false; }
+    let _ip, ipok = target::parse_ipv4(name);
+    return ipok;
+}
+
+// A browser Origin must be exactly http://<Host>.
+fn origin_allowed(origin: const u8[:], host: const u8[:]) -> bool {
+    if origin.len != host.len + 7 { return false; }
+    if !eq_ci(origin[..7], "http://") { return false; }
+    return eq_ci(origin[7..], host);
+}
+
+// Constant-time comparison (no early exit on the first differing byte).
+fn token_equal(a: const u8[:], b: const u8[:]) -> bool {
+    if a.len != b.len || a.len == 0 { return false; }
+    var diff: u8 = 0;
+    var i: i64 = 0;
+    while i < a.len {
+        diff |= a[i] ^ b[i];
+        i++;
+    }
+    return diff == 0;
+}
+
+fn bearer_ok(req: const u8[:], token: const u8[:]) -> bool {
+    var auth: u8[>..] = [];
+    if !header_value(req, "Authorization", auth) { return false; }
+    if auth.len < 8 || !eq_ci(auth[..7], "Bearer ") { return false; }
+    return token_equal(trim(auth[7..]), token);
+}
+
+// Access check for one request: 0 = allowed, else the HTTP status to
+// return (403 bad Host/Origin, 401 missing or wrong API token).
+fn check_access(req: const u8[:], path: const u8[:], port: i64, token: const u8[:]) -> i64 {
+    var host: u8[>..] = [];
+    if !header_value(req, "Host", host) || !host_allowed(host, port) { return 403; }
+    var origin: u8[>..] = [];
+    if header_value(req, "Origin", origin) && !origin_allowed(origin, host) { return 403; }
+    if starts_with(path, "/api/") && !bearer_ok(req, token) { return 401; }
+    return 0;
+}
+
+// A plugin name: 1..128 chars of [A-Za-z0-9_.-], alphanumeric first,
+// no "..". No slashes, so it can only name a file inside plugins/.
+fn valid_plugin_name(s: const u8[:]) -> bool {
+    if s.len == 0 || s.len > 128 { return false; }
+    if !is_alnum(s[0]) { return false; }
+    for c in s {
+        if !(is_alnum(c) || c == '_' || c == '-' || c == '.') { return false; }
+    }
+    if find_substring(s, "..") >= 0 { return false; }
     return true;
 }
 
@@ -246,6 +373,8 @@ fn copy_cstr(dst: u8[:], src: const u8[:]) -> bool {
 fn status_text(code: i64) -> const u8[:] {
     if code == 200 { return "OK"; }
     if code == 400 { return "Bad Request"; }
+    if code == 401 { return "Unauthorized"; }
+    if code == 403 { return "Forbidden"; }
     if code == 404 { return "Not Found"; }
     return "Internal Server Error";
 }
@@ -331,7 +460,7 @@ fn index_html(out: u8[>..]&) {
         <label>Scan type<select id="scan_type" name="scan_type"><option value="connect">Connect</option><option value="syn">SYN</option><option value="udp">UDP</option><option value="discovery">Discovery</option></select></label>
         <label>Timeout (ms)<input id="timeout" name="timeout" type="number" value="1000" min="1" max="60000"></label>
         <label>Retries<input id="retries" name="retries" type="number" value="3" min="0" max="10"></label>
-        <label>AlScript (.so)<input id="script" name="script" placeholder="plugins/http_title.so (optional)" autocomplete="off" list="scripts"><datalist id="scripts"><option value="plugins/http_title.so"><option value="plugins/ftp_anon.so"><option value="plugins/ssh_version.so"><option value="plugins/http_methods.so"><option value="plugins/redis_info.so"><option value="plugins/sample_banner.so"><option value="plugins/smb_version.so"><option value="plugins/dns_version.so"><option value="plugins/snmp_sysdescr.so"><option value="plugins/rdp_info.so"><option value="plugins/vnc_auth.so"><option value="plugins/ntp_version.so"><option value="plugins/ldap_rootdse.so"><option value="plugins/sip_options.so"><option value="plugins/ike_version.so"><option value="plugins/http_webdav.so"></datalist></label>
+        <label>AlScript plugin<input id="script" name="script" placeholder="http_title (optional)" autocomplete="off" list="scripts"><datalist id="scripts"><option value="http_title"><option value="http_title"><option value="ftp_anon"><option value="ssh_version"><option value="http_methods"><option value="redis_info"><option value="sample_banner"><option value="smb_version"><option value="dns_version"><option value="snmp_sysdescr"><option value="rdp_info"><option value="vnc_auth"><option value="ntp_version"><option value="ldap_rootdse"><option value="sip_options"><option value="ike_version"><option value="http_webdav"></datalist></label>
         </div>
         <div class="flags">
         <label><input type="checkbox" id="fast" name="fast"> Fast (async engine)</label>
@@ -350,9 +479,11 @@ fn index_html(out: u8[>..]&) {
         const btn=document.getElementById('runBtn');
         const dot=document.getElementById('dot');
         const st=document.getElementById('statusText');
-        async function checkStatus(){try{const r=await fetch('/api/status');const j=await r.json();dot.classList.add('on');st.textContent='online - v'+(j.version||'')+' - '+r.status;}catch(e){st.textContent='offline';}}
+        const tok=(()=>{const m=location.hash.match(/token=([0-9a-f]+)/);if(m){sessionStorage.setItem('almap_token',m[1]);history.replaceState(null,'',location.pathname);}return sessionStorage.getItem('almap_token')||'';})();
+        const auth={'Authorization':'Bearer '+tok};
+        async function checkStatus(){if(!tok){st.textContent='no API token - open the URL printed by almap --web';return;}try{const r=await fetch('/api/status',{headers:auth});if(r.status===401){st.textContent='API token rejected - open the URL printed by almap --web';return;}const j=await r.json();dot.classList.add('on');st.textContent='online - v'+(j.version||'')+' - '+r.status;}catch(e){st.textContent='offline';}}
         checkStatus();
-        document.getElementById('scanForm').addEventListener('submit',async(e)=>{e.preventDefault();btn.disabled=true;out.textContent='Running...';const payload={targets:document.getElementById('targets').value.trim(),ports:document.getElementById('ports').value.trim(),scan_type:document.getElementById('scan_type').value,fast:document.getElementById('fast').checked,os:document.getElementById('os').checked,service:document.getElementById('service').checked,evasion:document.getElementById('evasion').checked,timeout:parseInt(document.getElementById('timeout').value,10)||1000,retries:document.getElementById('retries').value===''?3:parseInt(document.getElementById('retries').value,10),script:document.getElementById('script').value.trim()};if(payload.scan_type==='discovery'){payload.discover=true;}try{const r=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const t=await r.text();try{out.textContent=JSON.stringify(JSON.parse(t),null,2);}catch(_){out.textContent=(r.status>399?'Error '+r.status+': ':'')+t;}out.className='terminal '+(r.ok?'':'err');}catch(err){out.textContent='Request failed: '+err.message;out.className='terminal err';}btn.disabled=false;});
+        document.getElementById('scanForm').addEventListener('submit',async(e)=>{e.preventDefault();btn.disabled=true;out.textContent='Running...';const payload={targets:document.getElementById('targets').value.trim(),ports:document.getElementById('ports').value.trim(),scan_type:document.getElementById('scan_type').value,fast:document.getElementById('fast').checked,os:document.getElementById('os').checked,service:document.getElementById('service').checked,evasion:document.getElementById('evasion').checked,timeout:parseInt(document.getElementById('timeout').value,10)||1000,retries:document.getElementById('retries').value===''?3:parseInt(document.getElementById('retries').value,10),script:document.getElementById('script').value.trim()};if(payload.scan_type==='discovery'){payload.discover=true;}try{const r=await fetch('/api/scan',{method:'POST',headers:{...auth,'Content-Type':'application/json'},body:JSON.stringify(payload)});const t=await r.text();try{out.textContent=JSON.stringify(JSON.parse(t),null,2);}catch(_){out.textContent=(r.status>399?'Error '+r.status+': ':'')+t;}out.className='terminal '+(r.ok?'':'err');}catch(err){out.textContent='Request failed: '+err.message;out.className='terminal err';}btn.disabled=false;});
         </script>
         </body>
         </html>
@@ -476,9 +607,9 @@ fn handle_scan(client: i32, body: const u8[:]) {
             send_response(client, 400, "application/json", err);
             return;
         }
-        if script_path.len > 512 {
+        if !valid_plugin_name(script_path) {
             var err: u8[>..] = [];
-            error_json(err, "script path too long");
+            error_json(err, "script must be a plugin name from the plugins/ directory (e.g. http_title), not a path");
             send_response(client, 400, "application/json", err);
             return;
         }
@@ -529,9 +660,23 @@ fn handle_scan(client: i32, body: const u8[:]) {
     }
     if use_script && !copy_cstr(script_c[..], script_path) {
         var err: u8[>..] = [];
-        error_json(err, "script path too long");
+        error_json(err, "script name too long");
         send_response(client, 400, "application/json", err);
         return;
+    }
+    // Only a regular file directly inside <binary dir>/plugins/ is ever
+    // handed to the scanner (and so to dlopen).
+    var plugin_path: u8[4096] = [0; 4096];
+    if use_script {
+        let rn = almap_http_resolve_plugin(script_c[0], plugin_path[0], plugin_path.len as i32);
+        if rn < 0 {
+            var err: u8[>..] = [];
+            err.append("{\"error\":\"unknown plugin '");
+            output::json_escape(err, script_path);
+            err.append("' (no such .so in the plugins/ directory)\"}");
+            send_response(client, 400, "application/json", err);
+            return;
+        }
     }
     var out_buf: u8[32768] = [0; 32768];
     var exit_buf: i32[1] = [0];
@@ -540,7 +685,7 @@ fn handle_scan(client: i32, body: const u8[:]) {
     let service_i: i32 = if is_service { 1 } else { 0 };
     let evasion_i: i32 = if is_evasion { 1 } else { 0 };
     let discover_i: i32 = if discover { 1 } else { 0 };
-    let rc = almap_http_run_scan(targets_c[0], ports_c[0], scan_c[0], fast_i, os_i, service_i, evasion_i, discover_i, timeout_ms as i32, retries as i32, script_c[0], out_buf[0], out_buf.len as i32, exit_buf[0]);
+    let rc = almap_http_run_scan(targets_c[0], ports_c[0], scan_c[0], fast_i, os_i, service_i, evasion_i, discover_i, timeout_ms as i32, retries as i32, plugin_path[0], out_buf[0], out_buf.len as i32, exit_buf[0]);
     if rc < 0 {
         var err: u8[>..] = [];
         error_json(err, "failed to start scan");
@@ -565,17 +710,41 @@ fn handle_scan(client: i32, body: const u8[:]) {
     send_response(client, 500, "application/json", err2);
 }
 
-fn serve(port: i64) -> bool {
+fn default_bind() -> const u8[:] {
+    return "127.0.0.1";
+}
+
+fn serve(port: i64, bind_addr: const u8[:]) -> bool {
     if !valid_port(port) {
         print("error: invalid web port");
         return false;
     }
-    let listen_fd = almap_http_listen(port as i32);
-    if listen_fd < 0 {
-        print("error: cannot listen on port ", port);
+    var bind_c: u8[64] = [0; 64];
+    if !copy_cstr(bind_c[..], bind_addr) {
+        print("error: invalid --web-bind address");
         return false;
     }
-    print("ALmap Web UI listening on http://0.0.0.0:", port, "/ (Ctrl+C to stop)");
+    var tok_buf: u8[64] = [0; 64];
+    if almap_http_random_token(tok_buf[0], tok_buf.len as i32) != 32 {
+        print("error: cannot generate an API token (/dev/urandom unreadable)");
+        return false;
+    }
+    let token = tok_buf[..32];
+    let listen_fd = almap_http_listen(bind_c[0], port as i32);
+    if listen_fd < 0 {
+        print("error: cannot listen on ", bind_addr, ":", port);
+        return false;
+    }
+    print("ALmap Web UI listening on ", bind_addr, ":", port, " (Ctrl+C to stop)");
+    if bind_addr == "0.0.0.0" {
+        print("open: http://<this-host-ip>:", port, "/#token=", token);
+    } else {
+        print("open: http://", bind_addr, ":", port, "/#token=", token);
+    }
+    print("API token: ", token, " (send as 'Authorization: Bearer <token>')");
+    if bind_addr != "127.0.0.1" {
+        print("warning: the Web UI is reachable beyond this machine; anyone with the token can run scans as this user");
+    }
     loop {
         let client = almap_http_accept(listen_fd);
         if client < 0 { continue; }
@@ -593,6 +762,18 @@ fn serve(port: i64) -> bool {
             var err: u8[>..] = [];
             error_json(err, "bad request");
             send_response(client, 400, "application/json", err);
+            almap_http_close(client);
+            continue;
+        }
+        let denied = check_access(req, path, port, token);
+        if denied != 0 {
+            var err: u8[>..] = [];
+            if denied == 401 {
+                error_json(err, "missing or invalid API token (Authorization: Bearer <token>)");
+            } else {
+                error_json(err, "forbidden Host or Origin");
+            }
+            send_response(client, denied, "application/json", err);
             almap_http_close(client);
             continue;
         }
