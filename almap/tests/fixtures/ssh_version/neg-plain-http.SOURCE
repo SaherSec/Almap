@@ -1,0 +1,5 @@
+kind: captured
+url: docker://docker.io/library/nginx@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8
+retrieved: 2026-11-22
+shows: the HTTP/1.1 200 response of a plain nginx server. The mock replays it whatever the client sends, so an SSH check sees a peer that sends non-SSH bytes (the non-SSH control); the mock sends them without waiting for a request
+basis: captured byte for byte with a plain GET / from a container of the pinned image started by the lab (tests/lab/control); the same bytes as tests/fixtures/http_title/pos-nginx-default.bin; no bytes were edited

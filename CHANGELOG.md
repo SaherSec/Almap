@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Plugins: SSH family (batch 11.2)
+
+13 files became 6 checks, all proven in the podman lab against seven pinned OpenSSH releases (8.4p1 to 10.3p1, `tests/lab/ssh`). Notes: [docs/plans/batches/02-ssh.md](docs/plans/batches/02-ssh.md).
+
+- `ssh_version`, `ssh2-enum-algos` and `ssh-hostkey` (tier `info`) are rewritten on a new `arsenal_ssh.h`. The shipped helper never sent the client identification string, which OpenSSH waits for before its KEXINIT, so every KEXINIT-based check printed only the banner against a real server. `ssh-hostkey` now reads the real host keys from the cleartext key-exchange reply and prints type, size and SHA256 fingerprint; the lab compares them with `ssh-keyscan` and `ssh-keygen -l`, and the algorithm lists with what `ssh -vv` reports.
+- `ssh-cve-2024-6387`, `ssh-cve-2023-38408` and `ssh-cve-2023-25136` (tier `detect`) compare the banner version with the documented range. They print `DETECTED` / `NOT DETECTED`, say they are banner-only, and print `INFO` for vendor builds and for `9.3` without a patch level (the lab's Alpine builds announce `OpenSSH_9.3` for both 9.3p1 and 9.3p2).
+- `ssh-auth-methods` and `ssh-brute` are removed: they need an encrypted SSH transport that the plugin helpers do not have.
+- New unit test `tests/test_ssh.c` (banner parser, SHA-256 against the NIST vectors, identification exchange).
+
+| Old name | New name | Why |
+|---|---|---|
+| `ssh2-enum-algos-2` | `ssh2-enum-algos` | numbered copy merged |
+| `ssh-hostkey-2` | `ssh-hostkey` | numbered copy merged |
+| `ssh_hostkey` | `ssh-hostkey` | merged; it offered one host key algorithm and printed only the algorithm list, now the real host keys are read from the key exchange reply |
+| `ssh-vuln-cve2024-6387-5` | `ssh-cve-2024-6387` | renamed and rewritten as a banner version check (tier detect): it never compared a version, and 'vuln' promised exploitability a banner cannot show |
+| `ssh-vuln-cve2023-38408-5` | `ssh-cve-2023-38408` | renamed and rewritten as a banner version check (tier detect) |
+| `ssh-vuln-cve2023-25136-5` | `ssh-cve-2023-25136` | renamed and rewritten as a banner version check (tier detect) |
+| `ssh-auth-methods` | removed | removed: needs an encrypted SSH transport (key exchange, cipher, MAC) that the plugin helpers do not have; it sent the authentication request in clear text before the key exchange, which no real server answers |
+| `ssh-auth-methods-2` | removed | removed with ssh-auth-methods |
+| `ssh-brute` | removed | removed: cannot authenticate without the encrypted transport (0 attempts against a real sshd), and it guessed passwords |
+| `ssh-brute-2` | removed | removed with ssh-brute |
+
 ## 5.1.0 - 2026-11-22
 
 A security and honesty release. The Web UI no longer has the holes found in the code review, every plugin that has not been proven prints only `INFO`, and the README now states the real numbers. The plugin count went down; it will grow back with real, verified plugins.

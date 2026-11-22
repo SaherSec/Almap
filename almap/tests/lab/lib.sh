@@ -16,6 +16,8 @@
 #   cases.tsv   check<TAB>role<TAB>port<TAB>expect
 #     expect: match:ERE | nomatch:ERE | fixture:CASE:match:ERE |
 #             fixture:CASE:nomatch:ERE   (ERE is a Python regular expression)
+#             oracle:KIND   (the output must equal what an independent client
+#                            reports: <family>/oracle/compare.sh PLUGIN HOST PORT KIND)
 #     port:   N for TCP, udp:N for a UDP scan
 #   A fixture CASE is tests/fixtures/<check>/<CASE>.bin and may have an
 #   optional <CASE>.mock file with lines proto=tcp|udp, send_first=1,
@@ -153,6 +155,17 @@ lab_run_case() {
                 grep -q '^ready' "$LAB_TMP/mock-$port.out" 2>/dev/null && break
                 sleep 0.1
             done
+            ;;
+        oracle:*)
+            # the plugin's output must equal what an independent client reports
+            # (tests/lab/<family>/oracle/compare.sh PLUGIN HOST PORT KIND)
+            local okind=${expect#oracle:} ocmp
+            if ocmp=$(bash "$dir/oracle/compare.sh" "$so" 127.0.0.1 "$port" "$okind" 2>&1); then
+                echo "PASS $check $role $port"
+                return 0
+            fi
+            echo "FAIL $check $role $port: oracle $okind disagrees: $(printf '%s' "$ocmp" | tr '\n' ' ' | cut -c1-300)"
+            return 1
             ;;
         match:*) mode=match; rx=${expect#match:} ;;
         nomatch:*) mode=nomatch; rx=${expect#nomatch:} ;;

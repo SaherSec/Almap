@@ -9,3 +9,13 @@ alscript	-	Rust support library of the removed Rust plugin port (not a plugin); 
 arsenal	-	Rust support library of the removed Rust plugin port (not a plugin); the C helpers are almap/plugins/arsenal_*.h
 smb	-	Rust support module of the removed Rust plugin port (not a plugin); the C helper is almap/plugins/arsenal_smb.h
 http-put	http-put	the Rust build had no unnumbered C source; its C copies are http-put-2 and http-put-3, which merge into http-put in the HTTP batch (not ported earlier)
+ssh2-enum-algos-2	ssh2-enum-algos	numbered copy merged
+ssh-hostkey-2	ssh-hostkey	numbered copy merged
+ssh_hostkey	ssh-hostkey	merged; it offered one host key algorithm and printed only the algorithm list, now the real host keys are read from the key exchange reply
+ssh-vuln-cve2024-6387-5	ssh-cve-2024-6387	renamed and rewritten as a banner version check (tier detect): it never compared a version, and 'vuln' promised exploitability a banner cannot show
+ssh-vuln-cve2023-38408-5	ssh-cve-2023-38408	renamed and rewritten as a banner version check (tier detect)
+ssh-vuln-cve2023-25136-5	ssh-cve-2023-25136	renamed and rewritten as a banner version check (tier detect)
+ssh-auth-methods	-	removed: needs an encrypted SSH transport (key exchange, cipher, MAC) that the plugin helpers do not have; it sent the authentication request in clear text before the key exchange, which no real server answers
+ssh-auth-methods-2	-	removed with ssh-auth-methods
+ssh-brute	-	removed: cannot authenticate without the encrypted transport (0 attempts against a real sshd), and it guessed passwords
+ssh-brute-2	-	removed with ssh-brute
