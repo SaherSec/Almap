@@ -55,9 +55,11 @@ extern "C" {
  *   Closes fd. Returns 0 on success, -1 on failure.
  *
  * almap_http_close_linger(fd):
- *   Like close, but first shuts down the sending side and discards
- *   incoming bytes for up to 100 ms, so an early error reply (413/400)
- *   to a client still sending its body is not lost to a reset.
+ *   Non-blocking. Hands fd to a C-owned draining list (max 32; when
+ *   full the fd is closed at once): C sends FIN, discards what the
+ *   client still sends and closes at EOF or after 200 ms, driven by
+ *   almap_http_next. The caller must not close fd afterwards. Used for
+ *   early 413/400 replies so the close cannot RST the reply away.
  *
  * almap_http_self_exe(buf, cap):
  *   Copies the current executable path (readlink /proc/self/exe) into

@@ -493,6 +493,75 @@ raw_scan "$WEB_PORT" "$HANG_BODY" "$TOKEN" 0.5 1 >"$TMPD/extra.code"
 [ "$(cat "$TMPD/extra.code")" = "200" ] || fail "extra request bytes aborted the scan (got '$(cat "$TMPD/extra.code")')"
 echo "extra request bytes do not kill the scan OK" >&2
 [ "$(kids "$WEB_PID")" = "0" ] || fail "child left after the suite"
+
+# 7. Early 413 replies must never stall the event loop (unauthenticated
+# clients that send a 413-triggering head and then go silent).
+bad_holder() { # PORT COUNT HOLD_SECONDS TOKEN: prints "ready <status ms>"
+python3 -c '
+import socket, sys, time
+port = int(sys.argv[1])
+socks = []
+for _ in range(int(sys.argv[2])):
+    s = socket.create_connection(("127.0.0.1", port))
+    s.sendall(b"POST /x HTTP/1.1\r\nHost: 127.0.0.1:" + sys.argv[1].encode() + b"\r\nContent-Length: 8192\r\n\r\n")
+    socks.append(s)
+# A status request queued right behind the bad ones.
+t0 = time.time()
+c = socket.create_connection(("127.0.0.1", port))
+c.settimeout(8)
+c.sendall(b"GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:" + sys.argv[1].encode() + b"\r\nAuthorization: Bearer " + sys.argv[4].encode() + b"\r\n\r\n")
+d = b""
+while b"scan_running" not in d:
+    x = c.recv(4096)
+    if not x: break
+    d += x
+print("ready %d" % ((time.time() - t0) * 1000), flush=True)
+time.sleep(float(sys.argv[3]))
+' "$@"
+}
+coproc BAD20 { bad_holder "$WEB_PORT" 20 4 "$TOKEN"; }
+read -r _ ELAPSED <&"${BAD20[0]}"
+[ "${ELAPSED:-9999}" -lt 500 ] || fail "status took ${ELAPSED}ms behind 20 silent 413 clients (want < 500)"
+kill "$BAD20_PID" 2>/dev/null; wait "$BAD20_PID" 2>/dev/null
+echo "20 silent 413 clients: status in ${ELAPSED}ms OK" >&2
+
+# 7b. ...and they do not delay the wall-clock kill of a running scan.
+start_web "$LIM_PORT" ALMAP_WEB_SCAN_LIMIT_S=1
+LIMTOK=$LAST_TOKEN
+LIMPID=$LAST_PID
+( post "$LIM_PORT" "$LIMTOK" "$TMPD/lim3.out" "$HANG_BODY" >"$TMPD/lim3.code"; now_ms >"$TMPD/lim3.end" ) &
+LIM3=$!
+T0=$(now_ms)
+sleep 0.5
+coproc BADL { bad_holder "$LIM_PORT" 20 3 "$LIMTOK"; }
+read -r _ <&"${BADL[0]}"
+wait "$LIM3"
+T1=$(cat "$TMPD/lim3.end")
+kill "$BADL_PID" 2>/dev/null; wait "$BADL_PID" 2>/dev/null
+[ "$(cat "$TMPD/lim3.code")" = "504" ] || fail "scan under 413 load: expected 504, got $(cat "$TMPD/lim3.code")"
+[ $((T1 - T0)) -lt 1700 ] || fail "504 came after $((T1 - T0)) ms under 413 load (want ~1000)"
+[ "$(kids "$LIMPID")" = "0" ] || fail "child left after 504 under load"
+echo "504 under 413 load after $((T1 - T0)) ms OK" >&2
+stop_web
+
+# 8. A scan child must not outlive a killed server.
+alive() { [ -r "/proc/$1/stat" ] && ! sed 's/^.*) //' "/proc/$1/stat" | grep -q '^Z'; }
+start_web "$LIM_PORT"
+DPID=$LAST_PID
+curl -s -o /dev/null -X POST "http://$HOST:$LIM_PORT/api/scan" -H "Authorization: Bearer $LAST_TOKEN" -H "$JSON" -d "$HANG_BODY" --max-time 8 &
+DCURL=$!
+sleep 1
+DCHILD=$(pgrep -P "$DPID" | head -1)
+[ -n "$DCHILD" ] || fail "no scan child to orphan"
+kill -9 "$DPID"; wait "$DPID" 2>/dev/null
+GONE=0
+for i in $(seq 1 20); do
+    if ! alive "$DCHILD"; then GONE=1; break; fi
+    sleep 0.05
+done
+kill "$DCURL" 2>/dev/null; wait "$DCURL" 2>/dev/null
+[ "$GONE" = 1 ] || { kill -9 "$DCHILD" 2>/dev/null; fail "scan child survived a kill -9 of the server"; }
+echo "server killed: scan child gone within 1 s OK" >&2
 echo "scan lifecycle OK" >&2
 
 echo "ok: web ui / status / scan / errors / bind / token / host+origin / plugin names" >&2

@@ -494,6 +494,87 @@ static void test_scan(void) {
     close(lfd);
 }
 
+static int count_fds(void) {
+    int n = 0;
+    char path[64];
+    int i;
+
+    for (i = 0; i < 1024; i++) {
+        snprintf(path, sizeof(path), "/proc/self/fd/%d", i);
+        if (access(path, F_OK) == 0) {
+            n++;
+        }
+    }
+    return n;
+}
+
+static int fd_open(int fd) {
+    return fcntl(fd, F_GETFD) != -1;
+}
+
+/* Drive almap_http_next for ~600 ms by sending it one request late. */
+static void spin_next(int lfd, int port) {
+    pid_t w = spawn_writer(port, 600000, "GET /spin HTTP/1.1\r\n\r\n", NULL, NULL);
+    unsigned char buf[ALMAP_WEB_REQ_CAP];
+    int cfd = -1;
+    int kind = 0;
+
+    (void)almap_http_next(lfd, buf, (int)sizeof(buf), &cfd, &kind);
+    if (cfd >= 0) {
+        close(cfd);
+    }
+    waitpid(w, NULL, 0);
+}
+
+static void test_drain(void) {
+    int port = 0;
+    int lfd = new_listener(&port);
+    int srv[40], cli[40];
+    int i, base;
+    char c;
+    long long t0;
+
+    if (lfd < 0) {
+        expect("drain listener", 0);
+        return;
+    }
+    setenv("ALMAP_WEB_REQ_DEADLINE_MS", "30000", 1);
+    spin_next(lfd, port); /* warm up: allocate the slot table */
+    base = count_fds();
+
+    /* 1: client closes after the FIN -> drained and closed at EOF. */
+    mk_pair(lfd, port, &srv[0], &cli[0]);
+    t0 = now_ms();
+    expect("linger returns at once", almap_http_close_linger(srv[0]) == 0 &&
+           now_ms() - t0 < 50);
+    expect("client sees FIN", read(cli[0], &c, 1) == 0);
+    (void)!write(cli[0], "late body bytes", 15);
+    close(cli[0]);
+    /* 2: silent client -> closed at the deadline. */
+    mk_pair(lfd, port, &srv[1], &cli[1]);
+    almap_http_close_linger(srv[1]);
+    spin_next(lfd, port);
+    expect("EOF'd entry closed", !fd_open(srv[0]));
+    expect("silent entry closed at deadline", !fd_open(srv[1]));
+    close(cli[1]);
+    /* 3: full list closes immediately. */
+    for (i = 0; i < 34; i++) {
+        mk_pair(lfd, port, &srv[i], &cli[i]);
+    }
+    for (i = 0; i < 34; i++) {
+        almap_http_close_linger(srv[i]);
+    }
+    expect("32 entries kept, 33rd closed at once", fd_open(srv[31]) &&
+           !fd_open(srv[32]) && !fd_open(srv[33]));
+    spin_next(lfd, port);
+    expect("all drained after the deadline", !fd_open(srv[0]) && !fd_open(srv[31]));
+    for (i = 0; i < 34; i++) {
+        close(cli[i]);
+    }
+    expect("no fd leak", count_fds() == base);
+    close(lfd);
+}
+
 int main(int argc, char **argv) {
     if (argc > 2 && strcmp(argv[1], "-t") == 0) {
         return fake_scanner(argv[2]);
@@ -502,6 +583,7 @@ int main(int argc, char **argv) {
     setenv("ALMAP_WEB_REQ_DEADLINE_MS", "300", 1);
     test_next();
     test_scan();
+    test_drain();
     check_cl("absent", H(""), 0, 0);
     check_cl("12", H("Content-Length: 12\r\n"), 1, 12);
     check_cl("zero", H("Content-Length: 0\r\n"), 1, 0);

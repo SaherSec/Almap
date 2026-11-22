@@ -22,6 +22,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 #include <unistd.h>
 
 #ifdef __linux__
@@ -391,6 +394,92 @@ static int slot_state(struct pending *p, int limit, int *req_len) {
     return 0;
 }
 
+/* Draining list: fds of early error replies (413/400). After the reply
+ * the caller hands the fd over; C sends FIN, then reads and discards
+ * what the client still sends (so close() does not RST the reply away)
+ * until EOF or ALMAP_DRAIN_MS. Entirely non-blocking; polled by
+ * almap_http_next. */
+#define ALMAP_DRAIN_MAX 32
+#define ALMAP_DRAIN_MS 200
+static int g_drain_fd[ALMAP_DRAIN_MAX];
+static long long g_drain_end[ALMAP_DRAIN_MAX];
+static int g_drain_init;
+
+static void drain_init(void) {
+    int i;
+
+    if (g_drain_init) {
+        return;
+    }
+    for (i = 0; i < ALMAP_DRAIN_MAX; i++) {
+        g_drain_fd[i] = -1;
+    }
+    g_drain_init = 1;
+}
+
+int almap_http_close_linger(int fd) {
+    int i;
+    int fl;
+
+    if (fd < 0) {
+        return -1;
+    }
+    drain_init();
+    (void)shutdown(fd, SHUT_WR);
+    fl = fcntl(fd, F_GETFL);
+    if (fl < 0 || fcntl(fd, F_SETFL, fl | O_NONBLOCK) != 0) {
+        return close(fd);
+    }
+    for (i = 0; i < ALMAP_DRAIN_MAX; i++) {
+        if (g_drain_fd[i] < 0) {
+            g_drain_fd[i] = fd;
+            g_drain_end[i] = mono_ms() + ALMAP_DRAIN_MS;
+            return 0;
+        }
+    }
+    return close(fd); /* list full: no lingering */
+}
+
+static void drain_close(int i) {
+    close(g_drain_fd[i]);
+    g_drain_fd[i] = -1;
+}
+
+/* Close drained-out / expired entries; discard readable bytes. */
+static void drain_service(const struct pollfd *pf, const int *which, int n,
+                          long long now) {
+    unsigned char junk[1024];
+    int i;
+    int k;
+
+    for (k = 0; k < n; k++) {
+        i = which[k];
+        if (g_drain_fd[i] != pf[k].fd || pf[k].revents == 0) {
+            continue;
+        }
+        for (;;) {
+            ssize_t r = recv(g_drain_fd[i], junk, sizeof(junk), MSG_DONTWAIT);
+
+            if (r > 0) {
+                continue;
+            }
+            if (r < 0 && errno == EINTR) {
+                continue;
+            }
+            if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                break;
+            }
+            drain_close(i); /* EOF or error */
+            break;
+        }
+    }
+    for (i = 0; i < ALMAP_DRAIN_MAX; i++) {
+        if (g_drain_fd[i] >= 0 && g_drain_end[i] <= now) {
+            drain_close(i);
+        }
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* Scan child: one at a time, driven by the almap_http_next poll loop. */
 
@@ -636,6 +725,7 @@ int almap_http_scan_start(int client_fd, const char *targets,
     int pipefd[2];
     int fl;
     pid_t pid;
+    pid_t parent = getpid();
 
     if (g_scan.active) {
         return -1;
@@ -730,6 +820,16 @@ int almap_http_scan_start(int client_fd, const char *targets,
         int nul;
 
         (void)setpgid(0, 0);
+#ifdef __linux__
+        /* The scan must not outlive the server (it is in its own
+         * process group, so a Ctrl-C on the server misses it). */
+        if (prctl(PR_SET_PDEATHSIG, SIGKILL) != 0) {
+            _exit(127);
+        }
+#endif
+        if (getppid() != parent) {
+            _exit(127); /* the server died before prctl took effect */
+        }
         signal(SIGPIPE, SIG_DFL);
         nul = open("/dev/null", O_RDONLY);
         if (nul < 0 || dup2(nul, STDIN_FILENO) < 0) {
@@ -860,14 +960,17 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
         int rc;
         int pipe_i = -1;
         int cli_i = -1;
+        int dr_first;
+        int dr_which[ALMAP_DRAIN_MAX];
+        int ndr = 0;
 
         for (i = 0; i < g_nslots; i++) {
             if (g_slots[i].fd >= 0 && g_slots[i].deadline_ms <= now) {
                 slot_drop(&g_slots[i]); /* deadline: no reply, no event */
             }
         }
-        pfd = (struct pollfd *)malloc((size_t)(g_nslots + 3) * sizeof(*pfd));
-        idx = (int *)malloc((size_t)(g_nslots + 3) * sizeof(*idx));
+        pfd = (struct pollfd *)malloc((size_t)(g_nslots + 3 + ALMAP_DRAIN_MAX) * sizeof(*pfd));
+        idx = (int *)malloc((size_t)(g_nslots + 3 + ALMAP_DRAIN_MAX) * sizeof(*idx));
         if (pfd == NULL || idx == NULL) {
             free(pfd);
             free(idx);
@@ -931,6 +1034,27 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
                 cli_i = nfd++;
             }
         }
+        drain_init();
+        dr_first = nfd;
+        for (i = 0; i < ALMAP_DRAIN_MAX; i++) {
+            long long left;
+
+            if (g_drain_fd[i] < 0) {
+                continue;
+            }
+            pfd[nfd].fd = g_drain_fd[i];
+            pfd[nfd].events = POLLIN;
+            pfd[nfd].revents = 0;
+            idx[nfd++] = -4;
+            dr_which[ndr++] = i;
+            left = g_drain_end[i] - now;
+            if (left < 0) {
+                left = 0;
+            }
+            if (timeout < 0 || left < timeout) {
+                timeout = (int)left;
+            }
+        }
         rc = poll(pfd, (nfds_t)nfd, timeout);
         if (rc < 0) {
             free(pfd);
@@ -943,6 +1067,7 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
         if (rc > 0 && (pfd[0].revents & POLLIN)) {
             accept_ready(listen_fd);
         }
+        drain_service(pfd + dr_first, dr_which, ndr, mono_ms());
         if (g_scan.active &&
             scan_pump(pipe_i >= 0 ? pfd[pipe_i].revents : 0,
                       cli_i >= 0 ? pfd[cli_i].revents : 0, mono_ms())) {
@@ -1032,40 +1157,6 @@ int almap_http_send(int client_fd, const unsigned char *buf, int len) {
 int almap_http_close(int fd) {
     if (fd < 0) {
         return -1;
-    }
-    return close(fd);
-}
-
-/* Close after an early error reply: send FIN, then discard whatever
- * request bytes are still arriving (up to 100 ms) so the close does not
- * turn into an RST that wipes the reply from the client's buffer. */
-int almap_http_close_linger(int fd) {
-    long long end = mono_ms() + 100;
-    unsigned char junk[1024];
-
-    if (fd < 0) {
-        return -1;
-    }
-    (void)shutdown(fd, SHUT_WR);
-    for (;;) {
-        long long left = end - mono_ms();
-        struct pollfd p;
-        ssize_t n;
-
-        if (left <= 0) {
-            break;
-        }
-        p.fd = fd;
-        p.events = POLLIN;
-        p.revents = 0;
-        if (poll(&p, 1, (int)left) <= 0) {
-            break;
-        }
-        n = recv(fd, junk, sizeof(junk), MSG_DONTWAIT);
-        if (n == 0 || (n < 0 && errno != EINTR && errno != EAGAIN &&
-                       errno != EWOULDBLOCK)) {
-            break;
-        }
     }
     return close(fd);
 }
