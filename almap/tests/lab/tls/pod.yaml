@@ -1,9 +1,10 @@
-# TLS lab: one pod, five servers on 127.0.0.1 (host ports 19101-19105).
+# TLS lab: one pod, six servers on 127.0.0.1 (host ports 19101-19106).
 #   19101  OpenSSL 1.0.1c (nginx): Heartbleed + CCS injection vulnerable, TLS 1.0-1.2
 #   19105  the same image with SSLv3 enabled (CBC suites): POODLE vulnerable
 #   19102  OpenSSL 3.5.9 s_server, defaults: patched
 #   19103  OpenSSL 3.5.9, TLS 1.0-1.2, a known cipher list (ssl-enum-ciphers)
 #   19104  OpenSSL 3.5.9, DHE only with a 1024-bit group (ssl-dh-params)
+#   19106  OpenSSL 1.1.1m s_server: a second, older patched implementation
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -76,4 +77,12 @@ spec:
       ports:
         - containerPort: 4435
           hostPort: 19104
+          hostIP: 127.0.0.1
+    - name: patched111
+      image: docker.io/vulhub/openssl@sha256:dffde83f29dc4a70e183ca7bf374f6a153839eda3a406fd5e2d41e953f72b978
+      command: ["sh", "-c"]
+      args: ["openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/k.pem -out /tmp/c.pem -subj /CN=almaplab -days 1 >/dev/null 2>&1 && exec openssl s_server -accept 4436 -key /tmp/k.pem -cert /tmp/c.pem -www -no_tls1_3"]
+      ports:
+        - containerPort: 4436
+          hostPort: 19106
           hostIP: 127.0.0.1

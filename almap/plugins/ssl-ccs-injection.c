@@ -2,9 +2,11 @@
  *
  * Completes a TLS 1.2 (or 1.1/1.0) handshake up to ServerHelloDone, then
  * sends a ChangeCipherSpec far too early. A patched server answers with
- * the alert unexpected_message (10) at once. A vulnerable OpenSSL accepts
- * it silently and then answers a second early CCS with bad_record_mac (20)
- * or decryption_failed (21). Silence after both is not conclusive.
+ * the alert unexpected_message (10) at once: NOT VULNERABLE. A vulnerable
+ * OpenSSL accepts it silently and then answers a second early CCS with
+ * bad_record_mac (20) or decryption_failed (21): VULNERABLE. Every other
+ * sequence (other alerts, silence, a closed connection) is INFO; only the
+ * two sequences above are verified against real targets in tests/lab/tls.
  * Read only: no keys are used and nothing is decrypted.
  *
  * Replaces ssl-ccs-injection and ssl-ccs-injection-2.
@@ -31,7 +33,7 @@ static int ccs_reply(int fd, int timeout_ms, int *desc) {
 
 int almap_script_run(AlScriptContext *ctx) {
     static const unsigned int versions[] = { 0x0303, 0x0302, 0x0301 };
-    unsigned short ids[64];
+    unsigned short ids[AR_TLS_MAXIDS];
     unsigned char ccs[6] = { AR_TLS_CCS, 0x03, 0x03, 0x00, 0x01, 0x01 };
     ar_tls_flight f;
     int nc;
@@ -45,7 +47,7 @@ int almap_script_run(AlScriptContext *ctx) {
     if (!ar_valid(ctx)) {
         return 1;
     }
-    nc = ar_tls_suite_ids(ids, 64, 0);
+    nc = ar_tls_suite_ids(ids, AR_TLS_MAXIDS, 0);
     for (vi = 0; vi < 3; vi++) {
         st = ar_tls_connect_hello(ctx, versions[vi], ids, nc, 0, 1, &f, &fd);
         if (st == AR_TLS_F_DONE) {
@@ -67,7 +69,8 @@ int almap_script_run(AlScriptContext *ctx) {
         }
         return 0;
     }
-    ccs[2] = (unsigned char)(versions[vi] & 255u);
+    ccs[1] = (unsigned char)(f.version >> 8);   /* the NEGOTIATED version */
+    ccs[2] = (unsigned char)(f.version & 255u);
     wait_ms = ctx->timeout_ms < 1500 ? 1500 : ctx->timeout_ms;
 
     if (as_send_all(fd, ccs, sizeof(ccs), ctx->timeout_ms) != 0) {
@@ -79,9 +82,6 @@ int almap_script_run(AlScriptContext *ctx) {
     if (r == 1 && desc == 10) {
         ar_out(ctx, "ssl-ccs-injection: NOT VULNERABLE (%s: an early ChangeCipherSpec was rejected with unexpected_message)",
                ar_tls_version_name(f.version));
-    } else if (r == 1 && (desc == 20 || desc == 21)) {
-        ar_out(ctx, "ssl-ccs-injection: VULNERABLE (CVE-2014-0224): an early ChangeCipherSpec was accepted (%s, alert %d)",
-               ar_tls_version_name(f.version), desc);
     } else if (r == 1) {
         ar_out(ctx, "ssl-ccs-injection: INFO alert %d after an early ChangeCipherSpec; not conclusive", desc);
     } else if (r == 2) {
@@ -89,13 +89,12 @@ int almap_script_run(AlScriptContext *ctx) {
     } else if (as_send_all(fd, ccs, sizeof(ccs), ctx->timeout_ms) != 0) {
         ar_out(ctx, "ssl-ccs-injection: INFO the connection closed after an early ChangeCipherSpec; not conclusive");
     } else {
+        /* The first CCS was accepted silently. A vulnerable OpenSSL then
+         * answers the second one with bad_record_mac / decryption_failed. */
         r = ccs_reply(fd, wait_ms, &desc);
         if (r == 1 && (desc == 20 || desc == 21)) {
             ar_out(ctx, "ssl-ccs-injection: VULNERABLE (CVE-2014-0224): an early ChangeCipherSpec was accepted silently and the second one was answered with alert %d (%s)",
                    desc, ar_tls_version_name(f.version));
-        } else if (r == 1 && desc == 10) {
-            ar_out(ctx, "ssl-ccs-injection: NOT VULNERABLE (%s: the second early ChangeCipherSpec was rejected with unexpected_message)",
-                   ar_tls_version_name(f.version));
         } else {
             ar_out(ctx, "ssl-ccs-injection: INFO no conclusive answer to two early ChangeCipherSpec messages");
         }

@@ -10,11 +10,11 @@
 #include "arsenal_tls.h"
 
 int almap_script_run(AlScriptContext *ctx) {
-    unsigned short dhe[64];
-    unsigned short ids[64];
+    unsigned short dhe[AR_TLS_MAXIDS];
+    unsigned short ids[AR_TLS_MAXIDS];
     ar_tls_flight f;
     char lab[16];
-    int n = ar_tls_suite_ids(ids, 64, 0);
+    int n = ar_tls_suite_ids(ids, AR_TLS_MAXIDS, 0);
     int nd = 0;
     int i;
     int fd = -1;
@@ -34,7 +34,10 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd >= 0) {
         close(fd);
     }
-    if (st == AR_TLS_F_DONE && f.hello && f.ske_len >= 3) {
+    if (st == AR_TLS_F_DONE && f.hello && f.ske_len >= 3 &&
+        ar_tls_cipher_name(f.cipher) != NULL &&
+        strstr(ar_tls_cipher_name(f.cipher), "_DHE_") != NULL &&
+        (((unsigned int)f.ske[0] << 8) | f.ske[1]) >= 64) {
         unsigned int plen = ((unsigned int)f.ske[0] << 8) | f.ske[1];
         unsigned int first = f.ske[2];
         int bits;
@@ -51,7 +54,7 @@ int almap_script_run(AlScriptContext *ctx) {
         ar_out(ctx, "ssl-dh-params: no finite-field DH group in the key exchange (%s selected)",
                ar_tls_cipher_label(f.cipher, lab, sizeof(lab)));
     } else if (st == AR_TLS_F_ALERT) {
-        ar_out(ctx, "ssl-dh-params: no DHE suite negotiated (server alert %d)", f.alert_desc);
+        ar_out(ctx, "ssl-dh-params: no DHE suite negotiated in a TLS 1.2 hello (server alert %d)", f.alert_desc);
     } else if (f.not_tls) {
         ar_out(ctx, "ssl-dh-params: not tested: the service did not answer with a TLS record");
     } else {

@@ -1,0 +1,5 @@
+kind: captured
+url: docker://docker.io/vulhub/openssl@sha256:3cf76769b6e33f45479e8bacd70d7c5c2bd8b8c4d5428ae3f613b1145a4a1c47
+retrieved: 2026-11-22
+shows: the TLS 1.2 handshake flight (ServerHello, Certificate, ServerKeyExchange, ServerHelloDone) of the OpenSSL 1.0.1c nginx. Replayed with the connection closed straight after it, this models a filter that completes the handshake and then drops the heartbeat / ChangeCipherSpec records: the plugins must say INFO, not NOT VULNERABLE
+basis: recorded byte for byte by tests/lab/tls/oracle/capture_flight.py from a container of the pinned image started by the lab (tests/lab/tls); no bytes were edited

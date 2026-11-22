@@ -1,5 +1,5 @@
 kind: captured
 url: docker://docker.io/library/nginx@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8
 retrieved: 2026-11-22
-shows: a plain HTTP server answering a TLS ClientHello with HTTP bytes: the non-TLS control for the TLS checks
+shows: the HTTP/1.1 200 response of a plain nginx server. The mock replays it whatever the client sends, so a TLS check sees a peer that answers with non-TLS bytes (the non-TLS control)
 basis: captured byte for byte with a plain GET / from a container of the pinned image started by the lab (tests/lab/control); the same bytes as tests/fixtures/http_title/pos-nginx-default.bin; no bytes were edited

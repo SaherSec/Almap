@@ -1,3 +1,4 @@
 # role	image@digest	origin	represents
 vuln	docker.io/vulhub/openssl@sha256:3cf76769b6e33f45479e8bacd70d7c5c2bd8b8c4d5428ae3f613b1145a4a1c47	https://github.com/vulhub/vulhub/tree/master/openssl/CVE-2014-0160	OpenSSL 1.0.1c in nginx: vulnerable to Heartbleed (CVE-2014-0160) and CCS injection (CVE-2014-0224); the Vulhub project's own lab image
 patched	docker.io/alpine/openssl@sha256:d8dc4590f53afae37bd990fde216b4d162e8f1b42c1b8c8beae27d6757054cc5	https://hub.docker.com/r/alpine/openssl	OpenSSL 3.5.9 s_server: patched against both, no SSLv3; configured per container for the info checks
+patched	docker.io/vulhub/openssl@sha256:dffde83f29dc4a70e183ca7bf374f6a153839eda3a406fd5e2d41e953f72b978	https://github.com/vulhub/vulhub/tree/master/openssl	OpenSSL 1.1.1m s_server: a second, older patched implementation (heartbeats compiled out; answers a heartbeat record with an alert)

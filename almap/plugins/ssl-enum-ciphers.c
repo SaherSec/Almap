@@ -11,7 +11,7 @@
  */
 #include "arsenal_tls.h"
 
-#define MAXS 64
+#define MAXS AR_TLS_MAXIDS
 
 int almap_script_run(AlScriptContext *ctx) {
     static const unsigned int versions[] = { 0x0300, 0x0301, 0x0302, 0x0303 };
@@ -28,6 +28,7 @@ int almap_script_run(AlScriptContext *ctx) {
     for (vi = 0; vi < 4; vi++) {
         int nr = ar_tls_suite_ids(remaining, MAXS, 0);
         int nf = 0;
+        int cut = 0; /* a probe failed without an answer after some succeeded */
         int round;
 
         for (round = 0; round < MAXS && nr > 0; round++) {
@@ -40,6 +41,9 @@ int almap_script_run(AlScriptContext *ctx) {
                 close(fd);
             }
             if (st != AR_TLS_F_HELLO || f.version != versions[vi]) {
+                if (st == AR_TLS_F_ERR && nf > 0) {
+                    cut = 1; /* no answer, not a refusal: the list may be short */
+                }
                 break;
             }
             for (k = 0; k < nr; k++) {
@@ -74,6 +78,9 @@ int almap_script_run(AlScriptContext *ctx) {
             any = 1;
             for (a = 0; a < nf; a++) {
                 ar_append(ctx, "%s%s", a ? ", " : "", ar_tls_cipher_label(found[a], lab, sizeof(lab)));
+            }
+            if (cut) {
+                ar_append(ctx, " (incomplete: a probe got no answer)");
             }
         }
     }

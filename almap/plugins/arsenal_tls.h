@@ -25,8 +25,11 @@
 #define AR_TLS_APPDATA 23
 #define AR_TLS_HEARTBEAT 24
 
-/* Largest record payload a peer may send (16384 + expansion). */
-#define AR_TLS_MAX_RECORD 18432
+/* Buffer for one record: the largest legal payload (16384 + 2048) + a NUL. */
+#define AR_TLS_MAX_RECORD 18433
+
+/* Capacity of the suite id arrays the plugins keep on the stack. */
+#define AR_TLS_MAXIDS 96
 
 typedef struct {
     unsigned short id;
@@ -41,9 +44,14 @@ static const ar_tls_suite ar_tls_suites[] = {
     {0x0004, "TLS_RSA_WITH_RC4_128_MD5"},
     {0x0005, "TLS_RSA_WITH_RC4_128_SHA"},
     {0x0006, "TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5"},
+    {0x0007, "TLS_RSA_WITH_IDEA_CBC_SHA"},
     {0x0008, "TLS_RSA_EXPORT_WITH_DES40_CBC_SHA"},
     {0x0009, "TLS_RSA_WITH_DES_CBC_SHA"},
     {0x000A, "TLS_RSA_WITH_3DES_EDE_CBC_SHA"},
+    {0x000D, "TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA"},
+    {0x0010, "TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA"},
+    {0x0012, "TLS_DHE_DSS_WITH_DES_CBC_SHA"},
+    {0x0013, "TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA"},
     {0x0014, "TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA"},
     {0x0015, "TLS_DHE_RSA_WITH_DES_CBC_SHA"},
     {0x0016, "TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA"},
@@ -56,9 +64,15 @@ static const ar_tls_suite ar_tls_suites[] = {
     {0x003C, "TLS_RSA_WITH_AES_128_CBC_SHA256"},
     {0x003D, "TLS_RSA_WITH_AES_256_CBC_SHA256"},
     {0x0041, "TLS_RSA_WITH_CAMELLIA_128_CBC_SHA"},
+    {0x0044, "TLS_DHE_DSS_WITH_CAMELLIA_128_CBC_SHA"},
+    {0x0045, "TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA"},
     {0x0067, "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256"},
     {0x006B, "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256"},
     {0x0084, "TLS_RSA_WITH_CAMELLIA_256_CBC_SHA"},
+    {0x0087, "TLS_DHE_DSS_WITH_CAMELLIA_256_CBC_SHA"},
+    {0x0088, "TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA"},
+    {0x0096, "TLS_RSA_WITH_SEED_CBC_SHA"},
+    {0x009A, "TLS_DHE_RSA_WITH_SEED_CBC_SHA"},
     {0x009C, "TLS_RSA_WITH_AES_128_GCM_SHA256"},
     {0x009D, "TLS_RSA_WITH_AES_256_GCM_SHA384"},
     {0x009E, "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256"},
@@ -84,6 +98,8 @@ static const ar_tls_suite ar_tls_suites[] = {
     {0xCCAA, "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256"},
 };
 #define AR_TLS_NSUITES ((int)(sizeof(ar_tls_suites) / sizeof(ar_tls_suites[0])))
+/* The id arrays must hold the whole table (compile error otherwise). */
+typedef char ar_tls_suites_fit_in_maxids[(AR_TLS_NSUITES <= AR_TLS_MAXIDS) ? 1 : -1];
 
 /* The IANA name of suite `c`, or NULL if it is not in the table. */
 static inline const char *ar_tls_cipher_name(unsigned int c) {
@@ -272,6 +288,8 @@ typedef struct {
     int hello;               /* a ServerHello was parsed */
     unsigned int version;    /* selected protocol version */
     unsigned int cipher;     /* selected suite */
+    int hb_ext;              /* heartbeat extension in the ServerHello: 0 none,
+                                1 peer_allowed_to_send, 2 peer_not_allowed */
     unsigned char ske[8];    /* first bytes of ServerKeyExchange, if any */
     int ske_len;
 } ar_tls_flight;
@@ -349,6 +367,27 @@ static inline int ar_tls_read_flight(int fd, int timeout_ms, int until_done,
                     f->cipher = ((unsigned int)first[35 + sid] << 8) |
                                 first[36 + sid];
                     f->hello = 1;
+                    {
+                        int p = 35 + sid + 3; /* after cipher (2) + compression (1) */
+
+                        if (first_n >= p + 2) {
+                            int end = p + 2 + (((int)first[p] << 8) | first[p + 1]);
+
+                            p += 2;
+                            if (end > first_n) {
+                                end = first_n; /* only the bytes captured */
+                            }
+                            while (p + 4 <= end) {
+                                int etype = ((int)first[p] << 8) | first[p + 1];
+                                int elen = ((int)first[p + 2] << 8) | first[p + 3];
+
+                                if (etype == 0x000F && elen >= 1 && p + 4 < first_n) {
+                                    f->hb_ext = first[p + 4] == 1 ? 1 : 2;
+                                }
+                                p += 4 + elen;
+                            }
+                        }
+                    }
                     if (!until_done) {
                         f->state = AR_TLS_F_HELLO;
                         return f->state;
