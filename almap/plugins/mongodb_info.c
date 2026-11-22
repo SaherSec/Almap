@@ -165,7 +165,9 @@ static int bson_find_string(const unsigned char *doc, size_t avail,
             break;
         }
         key = (const char *)(doc + pos);
-        nlen = strnlen(key, doclen - pos);
+        /* Bounded key length: strnlen is not available under -std=c99. */
+        for (nlen = 0; pos + nlen < doclen && key[nlen] != '\0'; nlen++) {
+        }
         if (pos + nlen >= doclen) {
             return 0;
         }
