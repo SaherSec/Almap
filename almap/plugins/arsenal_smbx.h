@@ -209,18 +209,22 @@ static inline void arx_smb2_neg_parse(const unsigned char *r, int len, ArxSmb2Ne
     o->capabilities = arx_le32(r + 88);
     if (o->dialect == ARX_D_311) {
         unsigned int cnt = arx_le16(r + 70);
-        unsigned int off = arx_le32(r + 124);
+        size_t off = arx_le32(r + 124);
+        size_t ulen = (size_t)len;
         unsigned int i;
-        for (i = 0; i < cnt && off + 8 <= (unsigned int)len; i++) {
-            unsigned int type = arx_le16(r + off);
-            unsigned int dl = arx_le16(r + off + 2);
-            if (off + 8 + dl > (unsigned int)len) {
+        for (i = 0; i < cnt; i++) {
+            size_t dl;
+            if (off > ulen || ulen - off < 8) {
                 break;
             }
-            if (type == 3) {
+            dl = arx_le16(r + off + 2);
+            if (dl > ulen - off - 8) {
+                break;
+            }
+            if (arx_le16(r + off) == 3) {
                 o->compression_ctx = 1;
             }
-            off = (off + 8 + dl + 7) & ~7u;
+            off = (off + 8 + dl + 7) & ~(size_t)7;
         }
     }
     o->ok = 1;

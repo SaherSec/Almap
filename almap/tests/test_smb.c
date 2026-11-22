@@ -75,6 +75,11 @@ int main(void) {
             arx_smb2_neg_parse(bad, sizeof(bad), &n2);
             CHECK(n2.ok && n2.compression_ctx, "compression context seen");
         }
+        /* a context offset near 2^32 must not wrap the bounds check and be read */
+        memcpy(bad, cap_smb2neg_311, sizeof(bad));
+        arx_put32(bad + 124, 0xFFFFFFFCu);
+        arx_smb2_neg_parse(bad, sizeof(bad), &n2);
+        CHECK(n2.ok && !n2.compression_ctx, "wrapping context offset ignored");
     }
 
     /* ---- the request we build ---- */
