@@ -70,6 +70,8 @@ add plugins-md       "bash tests/check_plugins_md.sh"
 add run-all-selftest "bash tests/run_all_selftest.sh"
 add check-verified-selftest "bash tests/check_verified_selftest.sh"
 add build-almap      "setup_goose && goose build almap.goose --cc gcc -o almap"
+add readme-claims     "bash tests/check_readme_claims.sh"
+add release-selftest  "setup_goose && bash tests/check_release_selftest.sh"
 for t in "$TESTS_DIR"/integration_*.sh; do
     [ -f "$t" ] || continue
     add "$(basename "$t")" "setup_goose >/dev/null 2>&1; bash '$t'"

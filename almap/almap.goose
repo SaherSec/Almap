@@ -72,7 +72,7 @@ struct Config {
 }
 
 fn print_help() {
-    print("ALmap v5.0.0 - modular network scanner");
+    print("ALmap v5.1.0 - modular network scanner");
     print("Usage: almap -t <targets> -p <ports> [--scan <connect|syn|udp>] [--timeout <ms>] [--workers <n>] [--retries <n>] [--rate <n>] [--fast] [-f] [--mtu <size>] [-D <ip1,ip2,...>] [--spoof-mac <mac>] [--script <so>] [--sigdb <path>] [--osdb <path>] [--json] [--table] [--xml] [--banners] [--service] [--os] [-sU] [--help]");
     print("       almap -iL <file> -p <ports> [--scan <connect|syn|udp>] [--timeout <ms>] [--workers <n>] [--retries <n>] [--rate <n>] [--fast] [-f] [--mtu <size>] [-D <ip1,ip2,...>] [--spoof-mac <mac>] [--script <so>] [--sigdb <path>] [--osdb <path>] [--json] [--table] [--xml] [--banners] [--service] [--os] [-sU] [--help]");
     print("       almap -t <targets> --discover [--timeout <ms>] [--workers <n>] [--json] [--table] [--xml] [--help]");

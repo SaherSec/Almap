@@ -10,7 +10,7 @@ namespace webui;
 //
 // Routes (Goose owns routing; C owns sockets/child processes):
 //   GET  /            -> index HTML page
-//   GET  /api/status  -> {"status":"ok","version":"5.0.0",...}
+//   GET  /api/status  -> {"status":"ok","version":"5.1.0",...}
 //   POST /api/scan    -> JSON {targets,ports,scan_type,fast,os,
 //                        service,evasion,discover,timeout,retries,
 //                        script}
@@ -68,7 +68,7 @@ extern fn almap_http_out_cap() -> i32;
 extern fn almap_http_scan_limit_s() -> i32;
 
 fn version_string() -> const u8[:] {
-    return "5.0.0";
+    return "5.1.0";
 }
 
 fn default_port() -> i64 {

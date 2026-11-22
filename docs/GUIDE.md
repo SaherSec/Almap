@@ -1,24 +1,37 @@
-# ALmap v4.0
+# ALmap v5.1.0
 
-**A modern, high-performance network scanner for Linux, written in
+**A small, auditable network scanner for Linux, written in
 [Goose](https://github.com/aardappel/goose) with a C data plane.**
 
-ALmap is a high-performance Nmap alternative built around an async engine (asynchronous `epoll` connect engine), bounded pthread worker pools, raw SYN/UDP
+ALmap is a network scanner built around an asynchronous `epoll` connect engine, bounded pthread worker pools, raw SYN/UDP
 probing, host discovery, evasion controls, native C plugins, and
 runtime service/OS signature databases. The Goose layer has no heap and
 no garbage collector; all Goose state is fixed-capacity, while C owns
 sockets, raw packets, threads, `dlopen`, and POSIX regex.
 
-High-performance Nmap alternative featuring an async engine, evasion controls, C plugins, a Regex DB for service detection, and an OS DB for fingerprinting.
+## What is new in 5.1.0
 
-## Killer Features (V4.0)
+- **A hardened Web UI.** Loopback by default, a random API token on every
+  `/api/` call, Host/Origin checks, JSON-only scan requests, bounded
+  requests, one scan at a time with a wall-clock limit, complete JSON output.
+- **Plugins with evidence rules.** Every plugin has a tier and a status in
+  `plugins/MANIFEST.tsv`; only plugins proven against real vulnerable and
+  patched targets may print `VULNERABLE` (see [AlScript native C
+  plugins](#alscript-native-c-plugins) and [PLUGINS.md](PLUGINS.md)).
+- **Tests that cannot hide.** One entry point (`tests/run_all.sh`), skipped
+  tests exit 77 and fail CI, and a podman lab runs each plugin family
+  against pinned containers.
+- **A clean repository.** No committed binaries; the C sources are the only
+  plugin source.
 
-ALmap V4.0 matches and exceeds Nmap's core engineering with a tiny,
-auditable, Linux-native core and a full Nmap-scale data plane.
+See the [CHANGELOG](../CHANGELOG.md) for details and the old-to-new plugin
+names.
+
+## Features
 
 - **Async epoll engine (`--fast`).** One non-blocking `epoll` loop
   keeps up to 10,000 TCP connects in flight, paced by a token-bucket
-  rate limiter. The fastest unprivileged scan path; ideal for /24s.
+  rate limiter. No root needed.
   ```sh
   # Copy-paste: async scan a /24, 500ms timeout, 1024 ports
   ./almap -t 192.168.1.0/24 -p 1-1024 --scan connect --fast --timeout 500
@@ -49,17 +62,17 @@ auditable, Linux-native core and a full Nmap-scale data plane.
   ```
 - **AlScript C plugins (no VM, no Lua).** Ordinary `.so` files
   exporting `int almap_script_run(AlScriptContext*)`, run in-process
-  with full privileges. V4 ships a 5-script arsenal inspired by NSE:
-  `http_title`, `ftp_anon`, `ssh_version`, `http_methods`,
-  `redis_info` (plus `sample_banner`).
+  with full privileges. Every plugin is built from the C sources in
+  `plugins/`; five of them (the TLS checks) are proven against real
+  targets so far and the rest are experimental and print `INFO` only.
   ```sh
-  # Copy-paste: build the arsenal and scan with a script
+  # Copy-paste: build the plugins and scan with one
   bash tools/build_plugins.sh
   ./almap -t 127.0.0.1 -p 80 --scan connect --script ./plugins/http_title.so
   ./almap -t 127.0.0.1 -p 22 --scan connect --script ./plugins/ssh_version.so --json
   ./almap -t 127.0.0.1 -p 21 --scan connect --script ./plugins/ftp_anon.so
   ```
-- **Full Nmap DB import (no limits).** The service DB (8k+ entries)
+- **Import of Nmap's databases.** The service DB (8k+ entries)
   and OS DB (1k+ unique of 6,100 Fingerprints) live in a dynamic C
   `malloc`/`realloc` hash table (16k buckets). 10,000-entry / 1,000-
   lookup benchmarks run in <1 ms.
@@ -69,7 +82,7 @@ auditable, Linux-native core and a full Nmap-scale data plane.
   python3 tools/import_nmap_os.py /usr/share/nmap/nmap-os-db -o ~/.almap/os-signatures.db
   ./almap -t 127.0.0.1 -p 22,80 --scan connect --service --sigdb ~/.almap/signatures.db
   ```
-- **Native C Web UI (Zenmap Killer).** Dark-mode SPA served by raw
+- **Native C Web UI.** Dark-mode SPA served by raw
   POSIX sockets (no mongoose/libmicrohttpd), embedded HTML/CSS/JS.
   API: `GET /api/status`, `POST /api/scan` (with `script` field).
   ```sh
@@ -104,9 +117,10 @@ auditable, Linux-native core and a full Nmap-scale data plane.
 
 ## Why ALmap
 
-- **Fast by design.** One non-blocking `epoll` loop can keep up to
+- **A non-blocking connect engine.** One `epoll` loop can keep up to
   10,000 TCP connect attempts in flight (`--fast`), with token-bucket
-  rate limiting and deadline-driven timeouts.
+  rate limiting and deadline-driven timeouts. No speed comparison with
+  other scanners has been measured.
 - **Deterministic output.** Targets are emitted in input order, hosts
   ascending, and ports in CLI order. Text, JSON, table, and XML all use
   the same result model.
@@ -122,7 +136,7 @@ auditable, Linux-native core and a full Nmap-scale data plane.
 
 ## Feature comparison
 
-| Capability | ALmap v4.0 | Nmap |
+| Capability | ALmap v5.1.0 | Nmap |
 | --- | --- | --- |
 | TCP connect / SYN / UDP scans | Yes | Yes |
 | Asynchronous connect engine | Yes: `--fast`, up to 10,000 in flight | Yes, different engine |
@@ -131,7 +145,7 @@ auditable, Linux-native core and a full Nmap-scale data plane.
 | IPv6 | Connect and discovery only | Broad |
 | Service detection | Built-in heuristics + full Nmap Regex DB (hash table, 8k+ entries) | Large probe database |
 | OS fingerprinting | T1-T7+U1 probe signature + TTL/window/IPID/ISN/options + DB | Deep fingerprint database |
-| Scripting | AlScript native C plugins | NSE (Lua) |
+| Scripting | AlScript native C plugins (5 verified checks so far) | NSE (Lua) |
 | Evasion | Fragmentation, MTU, decoys, MAC spoofing | Broader set |
 | Output | Text, JSON, table, XML | Text, XML, grepable |
 | Platforms | Linux (POSIX) | Cross-platform |
@@ -161,7 +175,7 @@ goose build almap.goose --cc gcc -o almap
 ./almap --help
 ```
 
-The first line of `--help` should read `ALmap v4.0.0 - modular network
+The first line of `--help` should read `ALmap v5.1.0 - modular network
 scanner`. If Goose cannot find its standard library, pass
 `--stdlib /path/to/stdlib` or keep `GOOSE_STDLIB` exported for every
 Goose command.
@@ -404,6 +418,30 @@ Plugins run in-process with full privileges, no sandbox, and no
 timeout isolation beyond the context's `timeout_ms`. Output is capped
 at 1023 bytes. Load only plugins you trust.
 
+**Tiers and evidence.** `plugins/MANIFEST.tsv` gives every plugin a tier
+(`vuln`, `detect`, `info` or `experimental`) and a status (`lab`,
+`captured`, `derived` or `experimental`). [PLUGINS.md](PLUGINS.md) is
+generated from it and shows four separate counts: Verified (lab), Verified
+(captured fixture), Detected (derived fixture) and Experimental. The rules,
+enforced by `tests/lint_plugins.sh`:
+
+- Only a `vuln` plugin proven in the lab (against a real vulnerable target,
+  a real patched one and a neutral control) may print `VULNERABLE` or
+  `NOT VULNERABLE`.
+- A plugin backed only by fixtures prints `DETECTED` / `NOT DETECTED`,
+  never `VULNERABLE`; a derived fixture comes from a published scanner
+  matcher and proves the product, not the vulnerability.
+- An experimental plugin prints lines that start `<name>: INFO`.
+- Silence, a closed connection or an unexpected reply is never evidence:
+  it prints `INFO` with the reason.
+- Fixtures must be real captures with a `.SOURCE` record; none is invented.
+
+The lab (`tests/lab/<family>`) starts pinned podman containers on
+127.0.0.1 and runs each plugin against vulnerable, patched and neutral
+targets: `bash tests/lab/run.sh tls`. Writing the cases first, from
+independent ground truth, is how the TLS family found that the earlier
+Heartbleed plugins missed a vulnerable server.
+
 ### Output formats
 
 ```sh
@@ -417,7 +455,7 @@ are suitable for automation; table output is tab-separated. IPv6
 addresses are bracketed in text/table output (`[::1]:80`) and plain in
 JSON/XML.
 
-## Web UI (Zenmap Killer)
+## Web UI
 
 ALmap ships a lightweight, dependency-free Web UI in the same binary.
 It is activated with `--web` (alias `--ui`) and serves a dark-mode
@@ -459,7 +497,7 @@ AUTH="Authorization: Bearer $TOKEN"
 
 # Health check.
 curl -H "$AUTH" http://127.0.0.1:8080/api/status
-# {"status":"ok","version":"5.0.0","service":"almap-web"}
+# {"status":"ok","version":"5.1.0","service":"almap-web"}
 
 # Connect scan: returns ALmap's --json output.
 curl -X POST http://127.0.0.1:8080/api/scan -H "$AUTH" \
@@ -484,9 +522,24 @@ unless discovery), `scan_type` (`connect` default, `syn`, `udp`,
 the ALmap binary as a child with `--json`, returning its JSON result
 on success (200) or `{"error":"..."}` on failure (400/500). A missing
 or wrong token returns 401; a foreign `Host` or `Origin` returns 403.
-Unknown paths return 404. The server is sequential (one request at a time)
-and inherits the server process privileges, so SYN/UDP/OS scans still
-need root or `CAP_NET_RAW`.
+Unknown paths return 404. `POST /api/scan` requires `Content-Type:
+application/json` (415 otherwise) and a request of at most 8 KiB (413).
+A request has 2 seconds to arrive and at most 32 connections can wait at
+once. Only one scan runs at a time (a second gets 409); a scan is killed
+after 300 seconds (504), when its client disconnects, or when the server
+stops, and its output (up to 16 MiB) is returned whole or as a JSON error
+(500 with `"truncated":true`), never cut off. `/api/status` also reports
+`"scan_running"`. Every response carries `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, a `frame-ancestors 'none'` policy and
+`Cache-Control: no-store`. The server inherits its own privileges, so
+SYN/UDP/OS scans still need root or `CAP_NET_RAW`.
+
+Known limits: the server is single-threaded, so a token holder reading a
+large result very slowly can still delay it (up to about 5 seconds plus 1
+second per MiB); a flood of 32 idle connections can lock others out for 2
+seconds at a time; a client that half-closes after sending its request gets
+its scan killed without a reply. The security audit is in
+[plans/2026-11-22-web-security-scan.md](plans/2026-11-22-web-security-scan.md).
 
 ## Importing Nmap databases
 
@@ -559,65 +612,46 @@ Both importers use only the Python standard library.
 
 ## Tests
 
-Run the complete verification suite from the repository root:
+One entry point runs everything (build, unit tests, plugin lint, every
+integration test) from the `almap/` directory:
 
 ```sh
 export GOOSE_STDLIB="$HOME/Downloads/goose-v2026.3-linux-x64/stdlib"
 
-# 1. Typecheck.
-goose check almap.goose
-
-# 2. Unit tests.
-goose build tests/test_almap.goose --cc gcc -o /tmp/test_almap
-/tmp/test_almap
-
-# 3. Compile every C layer with warnings enabled.
-gcc -std=c99 -Wall -Wextra -pthread -c c/*.c
-
-# 4. POSIX regex unit tests.
-gcc -std=c99 -Wall -Wextra -Ic -o /tmp/test_sigdb_regex \
-    tests/test_sigdb_regex.c c/sigdb.c
-/tmp/test_sigdb_regex
-
-# 4b. Dynamic sigdb benchmark (10k entries, 1k lookups, ms target).
-gcc -std=c99 -Wall -Wextra -Ic -o /tmp/test_sigdb_perf \
-    tests/test_sigdb_perf.c c/sigdb.c
-/tmp/test_sigdb_perf
-
-# 5. Every integration script (loopback only).
-for test_script in tests/integration_*.sh; do
-    echo "== $test_script"
-    "$test_script" || exit 1
-done
+bash tests/run_all.sh               # PASS / SKIP / FAIL per test and a summary
+bash tests/run_all.sh --no-skips    # a skipped test is a failure (what CI runs)
+bash tests/run_all.sh --only integration_syn
 ```
 
-Raw-socket tests skip cleanly without privileges. To exercise them in a
+A test exits 0 for PASS, 77 for SKIP and anything else for FAIL. The
+raw-socket tests (SYN, UDP, OS fingerprinting) need root or
+`CAP_NET_RAW` and report SKIP without it. To run them without root, use a
 user namespace with loopback enabled:
 
 ```sh
-unshare -Urn bash -c '
-    ip link set lo up
-    export GOOSE_STDLIB="$HOME/Downloads/goose-v2026.3-linux-x64/stdlib"
-    for test_script in tests/integration_*.sh; do
-        echo "== $test_script"
-        "$test_script" || exit 1
-    done
-'
+unshare -Urn bash -c 'ip link set lo up; bash tests/run_all.sh --no-skips'
 ```
 
-The 20 integration scripts are:
+The individual commands behind `run_all.sh` (from `AGENTS.md`):
 
-| Area | Scripts |
-| --- | --- |
-| Core scans | `connect`, `syn`, `udp`, `discovery`, `ipv6`, `multi_target` |
-| Engines and pacing | `fast`, `workers`, `workers_syn`, `workers_discovery`, `rate` |
-| Features and DBs | `banner`, `service`, `sigdb`, `os`, `osdb`, `script` |
-| Benchmarks | `sigdb_perf` (C harness, see README Tests) |
-| Output | `table`, `xml` |
-| Web UI | `web` |
+```sh
+goose check almap.goose
+goose build tests/test_almap.goose --cc gcc -o /tmp/test_almap && /tmp/test_almap
+gcc -std=c99 -Wall -Wextra -pthread -c c/*.c
+bash tools/build_plugins.sh --werror
+bash tests/lint_plugins.sh
+```
 
-All scripts live in `tests/` and use loopback addresses only. They
-build `./almap` automatically when it is missing.
+The plugin lab needs podman and network access to pull its pinned images:
+
+```sh
+bash tests/lab/run.sh control        # nginx and OpenSSH, the neutral targets
+bash tests/lab/run.sh tls            # the TLS family against vulnerable and patched servers
+bash tests/lab/selftest.sh           # the lab runner itself
+```
+
+CI (`.github/workflows/ci.yml` and `lab.yml`) runs all of this on every push;
+a plugin only counts as verified if all of its lab cases passed in that run.
 
 ## Release packaging
 
@@ -705,7 +739,7 @@ descriptors, sockets, threads, and plugin handles on every path.
 
 ## Legal Disclaimer
 
-**ALmap V4.0 is provided "AS IS", without warranty of any kind,
+**ALmap is provided "AS IS", without warranty of any kind,
 express or implied, including without limitation the warranties of
 merchantability, fitness for a particular purpose, and
 non-infringement. In no event shall the authors or copyright holders

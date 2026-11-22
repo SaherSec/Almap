@@ -18,13 +18,8 @@ You must strictly adhere to the following rules:
 - Emit structured output (Text, JSON, Table, XML) matching the existing project architecture.
 - Update the README.md after successfully implementing a step.
 
-## 4. Current Task
-- Step 31 (Advanced OS Fingerprinting + custom OS DB) is complete:
-  T1-T7+U1 probe sequence, TTL/window/ISN/TCP-options/IP-ID analysis,
-  signature matching against the dynamic OS DB (malloc/realloc, first
-  match wins), coarse fallback labels, and the full test suite pass.
-  ALmap is at **V4.0.0** (VERSION = 4.0.0, README rewritten, release
-  tarball in dist/).
-- Next phase (Step 32): build a **Next.js Web UI** (Zenmap killer) that
-  communicates with the native ALmap binary. Do not start Step 32 until
-  the user explicitly asks; the plan lives in WEB_UI_PLAN.md.
+## 4. Current State
+- ALmap is at **v5.1.0** (VERSION = 5.1.0). See `../CHANGELOG.md` for what changed, `../docs/PLUGINS.md` for the four plugin counts and `../docs/plans/` for the design and the per-family notes.
+- Run everything with `bash tests/run_all.sh` (`--no-skips` is what CI uses). A skipped test exits 77. Plugin families are tested against pinned podman containers with `bash tests/lab/run.sh <family>`.
+- Rules for plugins: nothing may print `VULNERABLE` without a lab case that shows the real vulnerable target giving `VULNERABLE` and the real patched one giving `NOT VULNERABLE`; fixtures must be real captures with a `.SOURCE` record; silence is never evidence (print `INFO`). `bash tests/lint_plugins.sh` enforces the word rules.
+- Next: verify the remaining plugin families (SSH, SMB, databases, DNS, then HTTP and CVE checks) one at a time. The Next.js Web UI (see `WEB_UI_PLAN.md`) is not started; do not start it until asked.

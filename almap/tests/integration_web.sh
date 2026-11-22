@@ -304,7 +304,7 @@ echo "script name-only checks OK" >&2
 STATUS=$(curl -s -o /tmp/web_status.out -w "%{http_code}" -H "$AUTH" "http://$HOST:$WEB_PORT/api/status" 2>/dev/null) || fail "curl /api/status failed"
 [ "$STATUS" = "200" ] || fail "expected 200 on /api/status, got $STATUS"
 grep -q '"status":"ok"' /tmp/web_status.out || fail "/api/status missing status ok"
-grep -q '"version":"5.0.0"' /tmp/web_status.out || fail "/api/status missing version 5.0.0"
+grep -q '"version":"5.1.0"' /tmp/web_status.out || fail "/api/status missing version 5.1.0"
 echo "GET /api/status OK" >&2
 
 # Index page: HTML shell with the scan form and terminal output.

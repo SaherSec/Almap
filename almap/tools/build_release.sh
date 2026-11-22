@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # tools/build_release.sh - build ALmap and package a release tarball.
 #
-# Builds the scanner and the sample AlScript plugin, then stages the
-# binary, README, VERSION, the shipped service signature DB, and an
-# optional OS signature DB in dist/ before creating a .tar.gz.
+# Builds the scanner and every AlScript plugin from its C source
+# (tools/build_plugins.sh --werror --clean), then stages the binary, the
+# gcc-built plugins (no sources), the plugin manifest, the plugin status
+# page, the top-level README, CHANGELOG and LICENSE, VERSION, the shipped
+# service signature DB, and an OS signature DB in dist/ before creating a
+# .tar.gz and its sha256. Nothing it builds is committed.
 #
 # The OS DB is taken from --osdb (already prepared), --nmap-os-db
 # (imported with tools/import_nmap_os.py), an os-signatures.db in the
@@ -23,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-DIST_DIR="$ROOT_DIR/dist"
+DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
 OSDB_PATH=""
 OSDB_IMPORT=""
 MAX_OS=256
@@ -42,8 +45,10 @@ Options:
   --keep-stage         Keep the unpacked staging directory in dist/.
   -h, --help           Show this help and exit.
 
-The package contains: almap, signatures.db, os-signatures.db, plugins/, sample_banner.so, README.md,
-VERSION.
+The package contains: almap, signatures.db, os-signatures.db, plugins/ (the
+gcc-built .so files and MANIFEST.tsv), sample_banner.so, README.md,
+CHANGELOG.md, LICENSE, PLUGINS.md and VERSION. Set DIST_DIR to write
+somewhere other than dist/.
 EOF
 }
 
@@ -99,7 +104,7 @@ esac
 VERSION="$(tr -d '[:space:]' < VERSION)"
 [ -n "$VERSION" ] || die "VERSION is empty"
 printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' ||
-    die "VERSION must look like 5.0.0 (got '$VERSION')"
+    die "VERSION must look like 5.1.0 (got '$VERSION')"
 [ -f almap.goose ] || die "almap.goose not found"
 [ -f signatures.db ] || die "signatures.db not found"
 [ -f plugins/sample_banner.c ] || die "plugins/sample_banner.c not found"
@@ -147,13 +152,22 @@ esac
 rm -rf "$STAGE" "$ARCHIVE" "$ARCHIVE.sha256"
 mkdir -p "$STAGE"
 
-log "staging binary, service DB, README, and VERSION"
+log "staging binary, service DB, docs, and VERSION"
 install -m 0755 almap "$STAGE/almap"
-install -m 0644 README.md "$STAGE/README.md"
 install -m 0644 VERSION "$STAGE/VERSION"
 install -m 0644 signatures.db "$STAGE/signatures.db"
+for doc in README.md CHANGELOG.md LICENSE; do
+    [ -f "$ROOT_DIR/../$doc" ] || die "$doc not found in the repository root"
+    install -m 0644 "$ROOT_DIR/../$doc" "$STAGE/$doc"
+done
+[ -f "$ROOT_DIR/../docs/PLUGINS.md" ] || die "docs/PLUGINS.md not found"
+install -m 0644 "$ROOT_DIR/../docs/PLUGINS.md" "$STAGE/PLUGINS.md"
+
+log "building every plugin from its C source (-Werror)"
 mkdir -p "$STAGE/plugins"
-cp -r plugins/. "$STAGE/plugins/"
+bash tools/build_plugins.sh --werror --clean --out "$STAGE/plugins" ||
+    die "a plugin failed to build"
+install -m 0644 plugins/MANIFEST.tsv "$STAGE/plugins/MANIFEST.tsv"
 
 log "building sample AlScript plugin"
 gcc -std=c99 -Wall -Wextra -shared -fPIC \
