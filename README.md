@@ -214,6 +214,7 @@ The raw-socket tests (SYN, UDP, OS fingerprinting) need root or `CAP_NET_RAW`; w
 - [x] Web UI bound to `127.0.0.1` by default, with token auth, Host/Origin checks, bounded requests and plugin-name-only `script`
 - [x] Plugin tiers with evidence rules, a podman lab and CI that fails on skipped tests
 - [ ] Verify the remaining 599 plugins family by family (SMB, databases, DNS, then HTTP and the CVE checks; TLS and SSH are done); see [docs/PLUGINS.md](docs/PLUGINS.md)
+- [ ] SSH transport layer (KEX + cipher + MAC) to bring back a real `ssh-auth-methods`
 - [ ] Select plugins by name pattern, category and port or service
 - [ ] HTTPS for the Web UI when it is bound beyond localhost
 - [ ] Published benchmarks against Nmap, masscan and RustScan
