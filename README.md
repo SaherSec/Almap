@@ -29,7 +29,7 @@ $ sudo ./almap -t 192.168.1.10 -p 22,80,443 --scan syn --os --service --json
 | **Scan modes** | TCP connect, raw SYN, raw UDP and host discovery (TCP ping plus ICMP echo). |
 | **OS fingerprinting** | Nmap-style T1–T7 + U1 probe sequence. Reads TTL, window, ISN, TCP options and IP-ID behaviour. No OS database ships: import Nmap's with `tools/import_nmap_os.py` for named matches; without it you get coarse labels (`linux-like`, `windows-like`, …). |
 | **Service detection** | Built-in heuristics plus a runtime regex database. The shipped `signatures.db` has 6 rules; import Nmap's service-probe set (8k+ rules) with `tools/import_nmap.py`. |
-| **AlScript plugins** | Plain `.so` files that export one C function. No VM and no Lua. 617 checks, 5 of them proven against real targets so far; the rest are experimental and print `INFO` only (see [Plugins](#plugins)). |
+| **AlScript plugins** | Plain `.so` files that export one C function. No VM and no Lua. 610 checks, 11 of them proven against real targets so far; the rest are experimental and print `INFO` only (see [Plugins](#plugins)). |
 | **Evasion** | IP fragmentation, custom MTU, up to 5 decoys and source-MAC spoofing. |
 | **Output** | Text, JSON, tab-separated table or XML. The order is always the same: targets as given, hosts ascending, ports as given. |
 | **IPv6** | Connect scans and discovery. |
@@ -109,12 +109,12 @@ Run `./almap --help` for every flag and its rules. The full guide is in **[docs/
 `almap/plugins/` holds the C source of every plugin. Each plugin has a tier and a status, recorded in [`almap/plugins/MANIFEST.tsv`](almap/plugins/MANIFEST.tsv) and summarised in [docs/PLUGINS.md](docs/PLUGINS.md):
 
 ```
-Verified (lab): 5
+Verified (lab): 11
 Verified (captured fixture): 0
 Detected (derived fixture): 0
-Experimental: 612
+Experimental: 599
 
-Total checks: 617
+Total checks: 610
 ```
 
 The four counts are separate and are never added together.
@@ -190,7 +190,7 @@ Use Nmap when you need its huge script library, full IPv6 coverage, or Windows a
 
 ## Known limits
 
-- **Plugins.** Only 5 of 617 are verified; the rest are experimental. Plugins run inside the scanner process with its full privileges and no sandbox or isolation, so a crashing or hanging plugin takes the scan down with it. `--script` runs one plugin per scan on every open port; there is no selection by category or service.
+- **Plugins.** Only 11 of 610 are verified; the rest are experimental. The SSH checks open several connections that never authenticate (`ssh-hostkey` opens three); OpenSSH 9.8 and later throttles a source address that does this (`PerSourcePenalties`), after which the checks print that no SSH identification line came back. The SSH CVE checks read the banner only: distributions backport fixes without changing it, and OpenBSD announces the same string but is not affected by CVE-2024-6387. Each SSH connection has a time budget of twice `--timeout`; `ssh-hostkey` makes three connections. Plugins run inside the scanner process with its full privileges and no sandbox or isolation, so a crashing or hanging plugin takes the scan down with it. `--script` runs one plugin per scan on every open port; there is no selection by category or service.
 - **Privileges.** A scan that opened raw sockets keeps root (or `CAP_NET_RAW`) for the whole life of the process; there is no privilege drop.
 - **Web UI.** The server is single-threaded. Someone who has the token can still stall it by reading a large scan result very slowly (up to about 5 seconds plus 1 second per MiB, per scan). A flood of 32 idle connections, reopened every 2 seconds, can keep other clients out. A client that half-closes its connection after sending the request (for example `nc -N`) gets its scan killed without a reply. The scan child resolves the plugin path again when it loads it, so anyone who can write into `plugins/` can already run code as the ALmap user. With `--web-bind 0.0.0.0` the token and results travel in plain HTTP.
 - **No benchmarks.** ALmap makes no speed claim against Nmap, masscan or any other scanner; none has been measured.
@@ -213,7 +213,8 @@ The raw-socket tests (SYN, UDP, OS fingerprinting) need root or `CAP_NET_RAW`; w
 
 - [x] Web UI bound to `127.0.0.1` by default, with token auth, Host/Origin checks, bounded requests and plugin-name-only `script`
 - [x] Plugin tiers with evidence rules, a podman lab and CI that fails on skipped tests
-- [ ] Verify the remaining 612 plugins family by family (SSH, SMB, databases, DNS, then HTTP and the CVE checks); see [docs/PLUGINS.md](docs/PLUGINS.md)
+- [ ] Verify the remaining 599 plugins family by family (SMB, databases, DNS, then HTTP and the CVE checks; TLS and SSH are done); see [docs/PLUGINS.md](docs/PLUGINS.md)
+- [ ] SSH transport layer (KEX + cipher + MAC) to bring back a real `ssh-auth-methods`
 - [ ] Select plugins by name pattern, category and port or service
 - [ ] HTTPS for the Web UI when it is bound beyond localhost
 - [ ] Published benchmarks against Nmap, masscan and RustScan

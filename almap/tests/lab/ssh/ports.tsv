@@ -1,0 +1,8 @@
+# role	containerPort	hostPort (always published on 127.0.0.1)
+ssh84	2222	19201
+ssh91	2222	19202
+ssh93p1	2222	19203
+ssh93p2	2222	19204
+ssh97	2222	19205
+ssh99	2222	19206
+ssh103	2222	19207

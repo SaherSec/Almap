@@ -1,0 +1,202 @@
+# SSH lab: one pod per OpenSSH release, each published on 127.0.0.1 only (19201-19207).
+# The lab password exists only inside these local containers.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: almaplab-ssh-nopenalty
+data:
+  lab.conf: |
+    # OpenSSH 9.8+ throttles a source address that opens many connections without
+    # authenticating (PerSourcePenalties). The checks open several such connections
+    # in a row, so the lab turns the throttle off for the 9.8+ servers to keep the
+    # cases independent. The README documents the throttle as a known limit.
+    PerSourcePenalties no
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh84
+spec:
+  restartPolicy: Never
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:b69aa9208b901de9ac9e01c881112cd8edec8988947fd53f8a6f562df389ca3a
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      ports:
+        - containerPort: 2222
+          hostPort: 19201
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh91
+spec:
+  restartPolicy: Never
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:3d2d656d6a7b1846dfe365004589869471fc1f5c26d687d0c18b6b6e62b51c02
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      ports:
+        - containerPort: 2222
+          hostPort: 19202
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh93p1
+spec:
+  restartPolicy: Never
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:deb8abf564ed1bcef13537d24f0a9bc6582a8be8e83405b4b02535f18b29ed0a
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      ports:
+        - containerPort: 2222
+          hostPort: 19203
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh93p2
+spec:
+  restartPolicy: Never
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:abc978317be39fe6077b28e7477871561e848802212e825d9305c8a46e5be01c
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      ports:
+        - containerPort: 2222
+          hostPort: 19204
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh97
+spec:
+  restartPolicy: Never
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:a84069dd785a3554cb79d156549e4879550692325573b0e9f144afa922ae4fec
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      ports:
+        - containerPort: 2222
+          hostPort: 19205
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh99
+spec:
+  restartPolicy: Never
+  volumes:
+    - name: nopenalty
+      configMap:
+        name: almaplab-ssh-nopenalty
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:159ae01bc1e209bb9d304789ecf611dff2b5f2b27aa7567900a003c832f817e3
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      volumeMounts:
+        - name: nopenalty
+          mountPath: /config/sshd/sshd_config.d
+      ports:
+        - containerPort: 2222
+          hostPort: 19206
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-ssh103
+spec:
+  restartPolicy: Never
+  volumes:
+    - name: nopenalty
+      configMap:
+        name: almaplab-ssh-nopenalty
+  containers:
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:7bd52bcb55b7cfbdae80c756403f37652b05b86b240f73a44f07ce40ac2692bf
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      volumeMounts:
+        - name: nopenalty
+          mountPath: /config/sshd/sshd_config.d
+      ports:
+        - containerPort: 2222
+          hostPort: 19207
+          hostIP: 127.0.0.1

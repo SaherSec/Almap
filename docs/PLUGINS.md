@@ -3,12 +3,12 @@
 Generated from `almap/plugins/MANIFEST.tsv` by `almap/tools/gen_plugins_md.py`. Do not edit by hand.
 
 ```
-Verified (lab): 5
+Verified (lab): 11
 Verified (captured fixture): 0
 Detected (derived fixture): 0
-Experimental: 612
+Experimental: 599
 
-Total checks: 617
+Total checks: 610
 ```
 
 The four counts are separate and are never added together.
@@ -30,7 +30,7 @@ The four counts are separate and are never added together.
 | iot | 0 | 0 | 0 | 50 | 50 |
 | services | 0 | 0 | 0 | 145 | 145 |
 | smb | 0 | 0 | 0 | 54 | 54 |
-| ssh | 0 | 0 | 0 | 13 | 13 |
+| ssh | 6 | 0 | 0 | 0 | 6 |
 | tls | 5 | 0 | 0 | 0 | 5 |
 
 ## All checks
@@ -575,19 +575,12 @@ The four counts are separate and are never added together.
 | snmp-info | services | experimental | experimental | - |
 | snmp-info-2 | services | experimental | experimental | - |
 | snmp_sysdescr | services | experimental | experimental | - |
-| ssh-auth-methods | ssh | experimental | experimental | - |
-| ssh-auth-methods-2 | ssh | experimental | experimental | - |
-| ssh-brute | ssh | experimental | experimental | - |
-| ssh-brute-2 | ssh | experimental | experimental | - |
-| ssh-hostkey | ssh | experimental | experimental | - |
-| ssh-hostkey-2 | ssh | experimental | experimental | - |
-| ssh-vuln-cve2023-25136-5 | ssh | experimental | experimental | - |
-| ssh-vuln-cve2023-38408-5 | ssh | experimental | experimental | - |
-| ssh-vuln-cve2024-6387-5 | ssh | experimental | experimental | - |
-| ssh2-enum-algos | ssh | experimental | experimental | - |
-| ssh2-enum-algos-2 | ssh | experimental | experimental | - |
-| ssh_hostkey | ssh | experimental | experimental | - |
-| ssh_version | ssh | experimental | experimental | - |
+| ssh-cve-2023-25136 | ssh | detect | lab | lab/ssh |
+| ssh-cve-2023-38408 | ssh | detect | lab | lab/ssh |
+| ssh-cve-2024-6387 | ssh | detect | lab | lab/ssh |
+| ssh-hostkey | ssh | info | lab | lab/ssh |
+| ssh2-enum-algos | ssh | info | lab | lab/ssh |
+| ssh_version | ssh | info | lab | lab/ssh |
 | ssl-ccs-injection | tls | vuln | lab | lab/tls |
 | ssl-dh-params | tls | info | lab | lab/tls |
 | ssl-enum-ciphers | tls | info | lab | lab/tls |

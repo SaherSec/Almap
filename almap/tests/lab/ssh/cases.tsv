@@ -1,0 +1,53 @@
+# check	role	port	expect   (see tests/lab/lib.sh)
+# ssh_version: exact software string of every release
+ssh_version	ssh84	19201	match:^ssh_version: protocol 2\.0, software OpenSSH_8\.4$
+ssh_version	ssh91	19202	match:^ssh_version: protocol 2\.0, software OpenSSH_9\.1$
+ssh_version	ssh93p1	19203	match:^ssh_version: protocol 2\.0, software OpenSSH_9\.3$
+ssh_version	ssh93p2	19204	match:^ssh_version: protocol 2\.0, software OpenSSH_9\.3$
+ssh_version	ssh97	19205	match:^ssh_version: protocol 2\.0, software OpenSSH_9\.7$
+ssh_version	ssh99	19206	match:^ssh_version: protocol 2\.0, software OpenSSH_9\.9$
+ssh_version	ssh103	19207	match:^ssh_version: protocol 2\.0, software OpenSSH_10\.3$
+ssh_version	fixture	19090	fixture:neg-plain-http:match:^ssh_version: no SSH identification line
+# ssh2-enum-algos: the lists must equal what the OpenSSH client reports for the same server
+ssh2-enum-algos	ssh84	19201	oracle:algos
+ssh2-enum-algos	ssh91	19202	oracle:algos
+ssh2-enum-algos	ssh93p1	19203	oracle:algos
+ssh2-enum-algos	ssh93p2	19204	oracle:algos
+ssh2-enum-algos	ssh97	19205	oracle:algos
+ssh2-enum-algos	ssh99	19206	oracle:algos
+ssh2-enum-algos	ssh103	19207	oracle:algos
+ssh2-enum-algos	fixture	19090	fixture:neg-plain-http:match:^ssh2-enum-algos: no SSH identification line
+# ssh-hostkey: type, size and fingerprint must equal ssh-keyscan + ssh-keygen -l
+ssh-hostkey	ssh84	19201	oracle:hostkeys
+ssh-hostkey	ssh91	19202	oracle:hostkeys
+ssh-hostkey	ssh93p1	19203	oracle:hostkeys
+ssh-hostkey	ssh93p2	19204	oracle:hostkeys
+ssh-hostkey	ssh97	19205	oracle:hostkeys
+ssh-hostkey	ssh99	19206	oracle:hostkeys
+ssh-hostkey	ssh103	19207	oracle:hostkeys
+ssh-hostkey	ssh97	19205	match:^ssh-hostkey: ssh-ed25519 256 SHA256:[A-Za-z0-9+/]{43}; ecdsa-sha2-nistp256 256 SHA256:[A-Za-z0-9+/]{43}; ssh-rsa 3072 SHA256:[A-Za-z0-9+/]{43}$
+ssh-hostkey	fixture	19090	fixture:neg-plain-http:match:^ssh-hostkey: no host key returned
+# CVE checks: banner version against the documented range
+ssh-cve-2024-6387	ssh84	19201	match:^ssh-cve-2024-6387: NOT DETECTED OpenSSH 8\.4 is outside
+ssh-cve-2024-6387	ssh91	19202	match:^ssh-cve-2024-6387: DETECTED OpenSSH 9\.1 is inside
+ssh-cve-2024-6387	ssh93p1	19203	match:^ssh-cve-2024-6387: DETECTED OpenSSH 9\.3 is inside
+ssh-cve-2024-6387	ssh93p2	19204	match:^ssh-cve-2024-6387: DETECTED OpenSSH 9\.3 is inside
+ssh-cve-2024-6387	ssh97	19205	match:^ssh-cve-2024-6387: DETECTED OpenSSH 9\.7 is inside
+ssh-cve-2024-6387	ssh99	19206	match:^ssh-cve-2024-6387: NOT DETECTED OpenSSH 9\.9 is outside
+ssh-cve-2024-6387	ssh103	19207	match:^ssh-cve-2024-6387: NOT DETECTED OpenSSH 10\.3 is outside
+ssh-cve-2024-6387	fixture	19090	fixture:neg-plain-http:match:^ssh-cve-2024-6387: INFO no SSH identification line
+ssh-cve-2024-6387	fixture	19090	fixture:neg-plain-http:nomatch:DETECTED
+ssh-cve-2023-38408	ssh84	19201	match:^ssh-cve-2023-38408: DETECTED OpenSSH 8\.4 is older
+ssh-cve-2023-38408	ssh91	19202	match:^ssh-cve-2023-38408: DETECTED OpenSSH 9\.1 is older
+ssh-cve-2023-38408	ssh93p1	19203	match:^ssh-cve-2023-38408: INFO OpenSSH 9\.3 without a pN suffix
+ssh-cve-2023-38408	ssh93p2	19204	match:^ssh-cve-2023-38408: INFO OpenSSH 9\.3 without a pN suffix
+ssh-cve-2023-38408	ssh97	19205	match:^ssh-cve-2023-38408: NOT DETECTED OpenSSH 9\.7 is 9\.3p2 or newer
+ssh-cve-2023-38408	ssh99	19206	match:^ssh-cve-2023-38408: NOT DETECTED OpenSSH 9\.9 is 9\.3p2 or newer
+ssh-cve-2023-38408	ssh103	19207	match:^ssh-cve-2023-38408: NOT DETECTED OpenSSH 10\.3 is 9\.3p2 or newer
+ssh-cve-2023-38408	fixture	19090	fixture:neg-plain-http:match:^ssh-cve-2023-38408: INFO no SSH identification line
+ssh-cve-2023-25136	ssh84	19201	match:^ssh-cve-2023-25136: NOT DETECTED OpenSSH 8\.4 is not 9\.1
+ssh-cve-2023-25136	ssh91	19202	match:^ssh-cve-2023-25136: DETECTED OpenSSH 9\.1 is the only affected release
+ssh-cve-2023-25136	ssh93p1	19203	match:^ssh-cve-2023-25136: NOT DETECTED OpenSSH 9\.3 is not 9\.1
+ssh-cve-2023-25136	ssh97	19205	match:^ssh-cve-2023-25136: NOT DETECTED OpenSSH 9\.7 is not 9\.1
+ssh-cve-2023-25136	ssh103	19207	match:^ssh-cve-2023-25136: NOT DETECTED OpenSSH 10\.3 is not 9\.1
+ssh-cve-2023-25136	fixture	19090	fixture:neg-plain-http:match:^ssh-cve-2023-25136: INFO no SSH identification line
