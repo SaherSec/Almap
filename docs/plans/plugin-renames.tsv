@@ -19,3 +19,52 @@ ssh-auth-methods	-	removed: needs an encrypted SSH transport (key exchange, ciph
 ssh-auth-methods-2	-	removed with ssh-auth-methods
 ssh-brute	-	removed: cannot authenticate without the encrypted transport (0 attempts against a real sshd), and it guessed passwords
 ssh-brute-2	-	removed with ssh-brute
+smb-brute-2	-	removed with smb-brute: no authentication exchange exists in the plugin helpers (an NTLM session setup with credentials); the shipped copy sent a negotiate and printed a line, and it guessed passwords
+smb-brute-3	-	removed with smb-brute-2
+smb-enum-domains-2	-	removed: needs authenticated or null-session DCE/RPC (SAMR/LSA over the IPC$ pipe), which the plugin helpers do not have; the shipped copy printed a negotiate summary
+smb-enum-domains-3	-	removed with smb-enum-domains-2
+smb-enum-groups-2	-	removed: needs DCE/RPC over SMB (SAMR); see smb-enum-domains-2
+smb-enum-groups-3	-	removed with smb-enum-groups-2
+smb-enum-processes-2	-	removed: needs DCE/RPC over SMB (remote registry/performance data) and credentials
+smb-enum-processes-3	-	removed with smb-enum-processes-2
+smb-enum-sessions-2	-	removed: needs DCE/RPC over SMB (SRVSVC NetSessEnum)
+smb-enum-sessions-3	-	removed with smb-enum-sessions-2
+smb-enum-users	-	removed: needs DCE/RPC over SMB (SAMR/LSA)
+smb-enum-users-2	-	removed with smb-enum-users
+smb-enum-users-3	-	removed with smb-enum-users
+smb-enum-shares	-	removed: needs DCE/RPC (SRVSVC NetShareEnumAll); the shipped version guessed share names with SMB1 tree connects and said 'none accessible' for a server that offers a guest share
+smb-enum-shares-2	-	removed with smb-enum-shares
+smb-enum-shares-3	-	removed with smb-enum-shares
+smb-ls-2	-	removed: needs authenticated file access (tree connect, create, query directory)
+smb-ls-3	-	removed with smb-ls-2
+smb-mbenum-2	-	removed: needs the browser service (NetServerEnum over a pipe)
+smb-mbenum-3	-	removed with smb-mbenum-2
+smb-null-session-check-4	-	removed: needs an anonymous SMB session setup and IPC$ tree connect with a working transport; the shipped copy only negotiated
+smb-vuln-ms06-025-4	-	removed: the flaw is in the Routing and Remote Access RPC service, not in SMB; the shipped copy negotiated SMB and printed 'verify'
+smb-vuln-ms07-029-4	-	removed: the flaw is in the DNS server RPC interface, not in SMB; the shipped copy negotiated SMB and printed 'verify'
+smb-vuln-ms10-054-4	-	removed: needs an authenticated share and a crafted SMB1 request; the shipped copy negotiated SMB and printed 'verify'
+smb-vuln-ms10-061-4	-	removed: the flaw is in the print spooler RPC, not in SMB; the shipped copy negotiated SMB and printed 'verify'
+smb-vuln-cve2020-1472-4	-	removed: Zerologon is a Netlogon RPC flaw, not an SMB one; the shipped copy negotiated SMB and printed 'verify'
+smb-vuln-cve2021-34527-4	-	removed: PrintNightmare is a print spooler RPC flaw, not an SMB one; the shipped copy negotiated SMB and printed 'verify'
+smb-vuln-cve2022-24521-4	-	removed: CVE-2022-24521 is a local flaw in the Windows CLFS driver, not reachable over SMB; the shipped copy negotiated SMB and printed 'verify'
+smb-check-vulns-2	-	removed with its parts: it only said which SMB dialects answered and 'check MS08-067 and MS17-010'; smb-protocols reports the dialects
+smb-check-vulns-3	-	removed with smb-check-vulns-2
+smb-os-discovery-2	smb-os-discovery	numbered copy merged
+smb-os-discovery-3	smb-os-discovery	numbered copy merged
+smb-security-mode-2	smb-security-mode	numbered copy merged
+smb-security-mode-3	smb-security-mode	numbered copy merged
+smb-security-mode-check-4	smb-security-mode	merged
+smb-protocols-check-4	smb-protocols	renamed and rewritten: one NEGOTIATE per dialect, so the accepted set is reported, not only the server's favourite
+smb-vuln-cve2017-7494-4	smb-cve-2017-7494	renamed and rewritten as a banner version check (tier detect): it printed 'verify' and never read the Samba version
+smb-vuln-cve2021-44142-5	smb-cve-2021-44142	renamed and rewritten as a banner version check (tier detect)
+smb-vuln-ms17-010-2	smb-vuln-ms17-010	numbered copy merged
+smb-vuln-ms17-010-3	smb-vuln-ms17-010	numbered copy merged
+smb-vuln-ms17-010-4	smb-vuln-ms17-010	numbered copy merged
+smb-vuln-ms17-010-full	smb-vuln-ms17-010	merged; its PeekNamedPipe probe used a non-extended-security session setup that current servers reject, so it never got past 'session setup failed'; it stays experimental and reports the SMB1 fact only
+smb-check-cve2017-0144-4	smb-vuln-ms17-010	merged (same vulnerability, CVE-2017-0144)
+smb-vuln-ms08-067-2	smb-vuln-ms08-067	numbered copy merged
+smb-vuln-ms08-067-3	smb-vuln-ms08-067	numbered copy merged
+smb-vuln-ms08-067-4	smb-vuln-ms08-067	numbered copy merged
+smb-double-pulsar-backdoor-2	smb-double-pulsar-backdoor	numbered copy merged (the base name did not exist)
+smb-double-pulsar-backdoor-3	smb-double-pulsar-backdoor	numbered copy merged
+smb-check-cve2020-0796-4	smb-vuln-cve2020-0796	renamed; experimental, reports the SMB 3.1.1 compression context fact only

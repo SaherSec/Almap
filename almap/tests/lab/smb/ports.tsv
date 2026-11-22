@@ -1,0 +1,7 @@
+# role	containerPort	hostPort (always published on 127.0.0.1)
+smb463	445	19301
+smb4122	445	19302
+smb4238	445	19303
+smb4238nt1	445	19304
+smb4238v2	445	19305
+smb4238v3	445	19306

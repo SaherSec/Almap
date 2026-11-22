@@ -1,0 +1,126 @@
+# SMB lab: one pod per Samba configuration, each published on 127.0.0.1 only (19301-19306).
+# Generated once from tests/lab/smb/images.tsv + ports.tsv; edit the YAML by hand afterwards.
+# The lab has no credentials: every share is a guest share inside these local containers.
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-smb463
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smb
+      image: docker.io/vulhub/samba@sha256:ba1886fa5d9d25efde1680ca1e0c92ac08e10feaec7d80a2eba1b0c23ac2d63d
+      ports:
+        - containerPort: 445
+          hostPort: 19301
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-smb4122
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smb
+      image: docker.io/dperson/samba@sha256:66088b78a19810dd1457a8f39340e95e663c728083efa5fe7dc0d40b2478e869
+      args:
+        - "-p"
+        - "-g"
+        - "server min protocol = NT1"
+        - "-g"
+        - "netbios name = LABSMB"
+        - "-s"
+        - "pub;/mnt;yes;no;yes"
+      env:
+        - name: WORKGROUP
+          value: "LABGROUP"
+      ports:
+        - containerPort: 445
+          hostPort: 19302
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-smb4238
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smb
+      image: ghcr.io/servercontainers/samba@sha256:40235b97bf0e85f0c1a02abf294c168f375425320af112bb204f8170a6f6801e
+      env:
+        - name: SAMBA_CONF_WORKGROUP
+          value: "LABGROUP"
+        - name: SAMBA_GLOBAL_STANZA
+          value: "netbios name = LABSMB"
+        - name: SAMBA_VOLUME_CONFIG_pub
+          value: "[pub]; path=/shares/pub; guest ok=yes; read only=yes"
+      ports:
+        - containerPort: 445
+          hostPort: 19303
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-smb4238nt1
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smb
+      image: ghcr.io/servercontainers/samba@sha256:40235b97bf0e85f0c1a02abf294c168f375425320af112bb204f8170a6f6801e
+      env:
+        - name: SAMBA_CONF_WORKGROUP
+          value: "LABGROUP"
+        - name: SAMBA_GLOBAL_STANZA
+          value: "netbios name = LABSMB;server min protocol = NT1;server signing = mandatory"
+        - name: SAMBA_VOLUME_CONFIG_pub
+          value: "[pub]; path=/shares/pub; guest ok=yes; read only=yes"
+      ports:
+        - containerPort: 445
+          hostPort: 19304
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-smb4238v2
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smb
+      image: ghcr.io/servercontainers/samba@sha256:40235b97bf0e85f0c1a02abf294c168f375425320af112bb204f8170a6f6801e
+      env:
+        - name: SAMBA_CONF_WORKGROUP
+          value: "LABGROUP"
+        - name: SAMBA_GLOBAL_STANZA
+          value: "netbios name = LABSMB;server max protocol = SMB2_10"
+        - name: SAMBA_VOLUME_CONFIG_pub
+          value: "[pub]; path=/shares/pub; guest ok=yes; read only=yes"
+      ports:
+        - containerPort: 445
+          hostPort: 19305
+          hostIP: 127.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-smb4238v3
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smb
+      image: ghcr.io/servercontainers/samba@sha256:40235b97bf0e85f0c1a02abf294c168f375425320af112bb204f8170a6f6801e
+      env:
+        - name: SAMBA_CONF_WORKGROUP
+          value: "LABGROUP"
+        - name: SAMBA_GLOBAL_STANZA
+          value: "netbios name = LABSMB;server min protocol = SMB3_00"
+        - name: SAMBA_VOLUME_CONFIG_pub
+          value: "[pub]; path=/shares/pub; guest ok=yes; read only=yes"
+      ports:
+        - containerPort: 445
+          hostPort: 19306
+          hostIP: 127.0.0.1

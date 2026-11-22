@@ -2,6 +2,70 @@
 
 ## Unreleased
 
+### Plugins: SMB family (batch 11.3)
+
+Before: 54 files, most of them printing a negotiate summary and "verify". After: 6 checks proven in the podman lab, 4 that stay experimental, the rest removed. Lab: six Samba configurations (4.6.3, 4.12.2 and the current 4.23.8 in four protocol and signing settings, `tests/lab/smb`). Notes: [docs/plans/batches/03-smb.md](docs/plans/batches/03-smb.md).
+
+- `smb_version`, `smb-protocols`, `smb-security-mode` and `smb-os-discovery` (tier `info`) are rewritten on a new `arsenal_smbx.h`. `smb-protocols` is compared with what Samba's `smbclient` accepts for each pinned dialect, `smb-security-mode` with a second client written from the protocol documents. The shipped `smb_version` printed `SMB 2.???` for every server (it read the SMB2 wildcard dialect of the SMB1 reply), and the other shipped checks printed "probe did not match" or an SMB1 dialect name on servers that have SMB1 switched off.
+- `smb-os-discovery` reads the native OS, LAN Manager and domain strings (SMB1) and the computer and domain names of the NTLMSSP challenge (SMB1 and SMB2). Only the NTLMSSP negotiate message is sent; no credentials.
+- `smb-cve-2017-7494` and `smb-cve-2021-44142` (tier `detect`) compare the Samba version from the SMB1 LAN Manager string with the documented ranges. They print `DETECTED` / `NOT DETECTED` and say they are banner-only, `INFO` for vendor builds, non-Samba servers and servers without SMB1 (where the version is not disclosed).
+- `smb-vuln-ms17-010`, `smb-vuln-ms08-067`, `smb-double-pulsar-backdoor` and `smb-vuln-cve2020-0796` stay `experimental`: they print which SMB facts they see and that the vulnerability is not decided. They need a Windows target to be verified.
+- Removed (31 names): every enumeration, listing and brute-force check (they need an authenticated SMB session and DCE/RPC over named pipes, which the plugin helpers do not have) and the checks for flaws outside SMB (Zerologon, PrintNightmare, CLFS, RRAS, DNS RPC, print spooler) that only negotiated SMB and printed "verify".
+- New unit test `tests/test_smb.c`: parsers against replies captured from the lab servers, every truncation of those replies, hostile NTLM offsets, every Samba version boundary, the time budget.
+
+| Old name | New name | Why |
+|---|---|---|
+| `smb` | removed | Rust support module of the removed Rust plugin port (not a plugin); the C helper is almap/plugins/arsenal_smb.h |
+| `smb-brute-2` | removed | removed with smb-brute: no authentication exchange exists in the plugin helpers (an NTLM session setup with credentials); the shipped copy sent a negotiate and printed a line, and it guessed passwords |
+| `smb-brute-3` | removed | removed with smb-brute-2 |
+| `smb-enum-domains-2` | removed | removed: needs authenticated or null-session DCE/RPC (SAMR/LSA over the IPC$ pipe), which the plugin helpers do not have; the shipped copy printed a negotiate summary |
+| `smb-enum-domains-3` | removed | removed with smb-enum-domains-2 |
+| `smb-enum-groups-2` | removed | removed: needs DCE/RPC over SMB (SAMR); see smb-enum-domains-2 |
+| `smb-enum-groups-3` | removed | removed with smb-enum-groups-2 |
+| `smb-enum-processes-2` | removed | removed: needs DCE/RPC over SMB (remote registry/performance data) and credentials |
+| `smb-enum-processes-3` | removed | removed with smb-enum-processes-2 |
+| `smb-enum-sessions-2` | removed | removed: needs DCE/RPC over SMB (SRVSVC NetSessEnum) |
+| `smb-enum-sessions-3` | removed | removed with smb-enum-sessions-2 |
+| `smb-enum-users` | removed | removed: needs DCE/RPC over SMB (SAMR/LSA) |
+| `smb-enum-users-2` | removed | removed with smb-enum-users |
+| `smb-enum-users-3` | removed | removed with smb-enum-users |
+| `smb-enum-shares` | removed | removed: needs DCE/RPC (SRVSVC NetShareEnumAll); the shipped version guessed share names with SMB1 tree connects and said 'none accessible' for a server that offers a guest share |
+| `smb-enum-shares-2` | removed | removed with smb-enum-shares |
+| `smb-enum-shares-3` | removed | removed with smb-enum-shares |
+| `smb-ls-2` | removed | removed: needs authenticated file access (tree connect, create, query directory) |
+| `smb-ls-3` | removed | removed with smb-ls-2 |
+| `smb-mbenum-2` | removed | removed: needs the browser service (NetServerEnum over a pipe) |
+| `smb-mbenum-3` | removed | removed with smb-mbenum-2 |
+| `smb-null-session-check-4` | removed | removed: needs an anonymous SMB session setup and IPC$ tree connect with a working transport; the shipped copy only negotiated |
+| `smb-vuln-ms06-025-4` | removed | removed: the flaw is in the Routing and Remote Access RPC service, not in SMB; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-vuln-ms07-029-4` | removed | removed: the flaw is in the DNS server RPC interface, not in SMB; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-vuln-ms10-054-4` | removed | removed: needs an authenticated share and a crafted SMB1 request; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-vuln-ms10-061-4` | removed | removed: the flaw is in the print spooler RPC, not in SMB; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-vuln-cve2020-1472-4` | removed | removed: Zerologon is a Netlogon RPC flaw, not an SMB one; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-vuln-cve2021-34527-4` | removed | removed: PrintNightmare is a print spooler RPC flaw, not an SMB one; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-vuln-cve2022-24521-4` | removed | removed: CVE-2022-24521 is a local flaw in the Windows CLFS driver, not reachable over SMB; the shipped copy negotiated SMB and printed 'verify' |
+| `smb-check-vulns-2` | removed | removed with its parts: it only said which SMB dialects answered and 'check MS08-067 and MS17-010'; smb-protocols reports the dialects |
+| `smb-check-vulns-3` | removed | removed with smb-check-vulns-2 |
+| `smb-os-discovery-2` | `smb-os-discovery` | numbered copy merged |
+| `smb-os-discovery-3` | `smb-os-discovery` | numbered copy merged |
+| `smb-security-mode-2` | `smb-security-mode` | numbered copy merged |
+| `smb-security-mode-3` | `smb-security-mode` | numbered copy merged |
+| `smb-security-mode-check-4` | `smb-security-mode` | merged |
+| `smb-protocols-check-4` | `smb-protocols` | renamed and rewritten: one NEGOTIATE per dialect, so the accepted set is reported, not only the server's favourite |
+| `smb-vuln-cve2017-7494-4` | `smb-cve-2017-7494` | renamed and rewritten as a banner version check (tier detect): it printed 'verify' and never read the Samba version |
+| `smb-vuln-cve2021-44142-5` | `smb-cve-2021-44142` | renamed and rewritten as a banner version check (tier detect) |
+| `smb-vuln-ms17-010-2` | `smb-vuln-ms17-010` | numbered copy merged |
+| `smb-vuln-ms17-010-3` | `smb-vuln-ms17-010` | numbered copy merged |
+| `smb-vuln-ms17-010-4` | `smb-vuln-ms17-010` | numbered copy merged |
+| `smb-vuln-ms17-010-full` | `smb-vuln-ms17-010` | merged; its PeekNamedPipe probe used a non-extended-security session setup that current servers reject, so it never got past 'session setup failed'; it stays experimental and reports the SMB1 fact only |
+| `smb-check-cve2017-0144-4` | `smb-vuln-ms17-010` | merged (same vulnerability, CVE-2017-0144) |
+| `smb-vuln-ms08-067-2` | `smb-vuln-ms08-067` | numbered copy merged |
+| `smb-vuln-ms08-067-3` | `smb-vuln-ms08-067` | numbered copy merged |
+| `smb-vuln-ms08-067-4` | `smb-vuln-ms08-067` | numbered copy merged |
+| `smb-double-pulsar-backdoor-2` | `smb-double-pulsar-backdoor` | numbered copy merged (the base name did not exist) |
+| `smb-double-pulsar-backdoor-3` | `smb-double-pulsar-backdoor` | numbered copy merged |
+| `smb-check-cve2020-0796-4` | `smb-vuln-cve2020-0796` | renamed; experimental, reports the SMB 3.1.1 compression context fact only |
+
 ### Plugins: SSH family (batch 11.2)
 
 13 files became 6 checks, run in the podman lab against seven pinned OpenSSH releases (8.4p1 to 10.3p1, `tests/lab/ssh`). For `ssh_version`, `ssh2-enum-algos` and `ssh-hostkey` the lab proves the output against the real servers. For the three CVE checks it proves only that the banner is read and compared with the documented range correctly: no server in the lab is shown to be exploitable, which is why they are `detect`. Notes: [docs/plans/batches/02-ssh.md](docs/plans/batches/02-ssh.md).

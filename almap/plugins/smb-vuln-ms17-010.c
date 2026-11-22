@@ -1,41 +1,21 @@
-/* smb-vuln-ms17-010 - EternalBlue SMBv1 exposure check. */
-#include "arsenal_smb.h"
+/* smb-vuln-ms17-010 - experimental: reports which SMB dialects answer and says plainly
+ * that MS17-010 (CVE-2017-0143 to 0148) is not decided. It needs SMB1. */
+#include "arsenal_smbx.h"
 
 int almap_script_run(AlScriptContext *ctx) {
-    unsigned char resp[2048];
-    char os[256];
-    char lan[256];
-    unsigned int uid = 0;
-    unsigned int d1 = 0xFFFF;
-    unsigned int d2 = 0xFFFF;
-    int fd = -1;
-    int n;
+    ArxSmb1Neg n1;
+    int r;
 
     if (!ar_valid(ctx)) {
         return 1;
     }
-    n = ar_smb2_negotiate(ctx, resp, sizeof(resp));
-    if (n > 0) {
-        d2 = ar_smb2_dialect(resp, n);
-    }
-    n = ar_smb1_negotiate(ctx, resp, sizeof(resp));
-    if (n > 0) {
-        d1 = ar_smb1_dialect(resp, n);
-    }
-    if (d1 > 5) {
-        ar_out(ctx, "smb-vuln-ms17-010: INFO MS17-010: SMBv1 not offered (SMB2 dialect 0x%04x)", d2);
-        return 0;
-    }
-    (void)ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
-                               lan, sizeof(lan));
-    if (fd >= 0) {
-        close(fd);
-    }
-    ar_out(ctx, "smb-vuln-ms17-010: INFO potentially matches probe for: MS17-010 EternalBlue "
-           "(SMBv1 %s; patch level not confirmed)",
-           ar_smb1_dialect_name(d1));
-    if (os[0] != '\0') {
-        ar_append(ctx, " OS=%s", os);
+    r = arx_smb1_negotiate(ctx, &n1, NULL);
+    if (r == 1) {
+        ar_out(ctx, "smb-vuln-ms17-010: INFO SMB1 (NT LM 0.12) is accepted; MS17-010 (CVE-2017-0143 to 0148) is not decided: the PeekNamedPipe probe is not implemented, there is no Windows target with the flaw to verify it against");
+    } else if (r == 0) {
+        ar_out(ctx, "smb-vuln-ms17-010: INFO SMB1 is not accepted; MS17-010 (CVE-2017-0143 to 0148) is not decided");
+    } else {
+        ar_out(ctx, "smb-vuln-ms17-010: INFO no SMB response; MS17-010 (CVE-2017-0143 to 0148) is not decided");
     }
     return 0;
 }

@@ -3,12 +3,12 @@
 Generated from `almap/plugins/MANIFEST.tsv` by `almap/tools/gen_plugins_md.py`. Do not edit by hand.
 
 ```
-Verified (lab): 11
+Verified (lab): 17
 Verified (captured fixture): 0
 Detected (derived fixture): 0
-Experimental: 599
+Experimental: 549
 
-Total checks: 610
+Total checks: 566
 ```
 
 The four counts are separate and are never added together.
@@ -29,7 +29,7 @@ The four counts are separate and are never added together.
 | http-cve | 0 | 0 | 0 | 157 | 157 |
 | iot | 0 | 0 | 0 | 50 | 50 |
 | services | 0 | 0 | 0 | 145 | 145 |
-| smb | 0 | 0 | 0 | 54 | 54 |
+| smb | 6 | 0 | 0 | 4 | 10 |
 | ssh | 6 | 0 | 0 | 0 | 6 |
 | tls | 5 | 0 | 0 | 0 | 5 |
 
@@ -512,60 +512,16 @@ The four counts are separate and are never added together.
 | sip-enum-users-3 | services | experimental | experimental | - |
 | sip-options-3 | services | experimental | experimental | - |
 | sip_options | services | experimental | experimental | - |
-| smb-brute-2 | smb | experimental | experimental | - |
-| smb-brute-3 | smb | experimental | experimental | - |
-| smb-check-cve2017-0144-4 | smb | experimental | experimental | - |
-| smb-check-cve2020-0796-4 | smb | experimental | experimental | - |
-| smb-check-vulns-2 | smb | experimental | experimental | - |
-| smb-check-vulns-3 | smb | experimental | experimental | - |
-| smb-double-pulsar-backdoor-2 | smb | experimental | experimental | - |
-| smb-double-pulsar-backdoor-3 | smb | experimental | experimental | - |
-| smb-enum-domains-2 | smb | experimental | experimental | - |
-| smb-enum-domains-3 | smb | experimental | experimental | - |
-| smb-enum-groups-2 | smb | experimental | experimental | - |
-| smb-enum-groups-3 | smb | experimental | experimental | - |
-| smb-enum-processes-2 | smb | experimental | experimental | - |
-| smb-enum-processes-3 | smb | experimental | experimental | - |
-| smb-enum-sessions-2 | smb | experimental | experimental | - |
-| smb-enum-sessions-3 | smb | experimental | experimental | - |
-| smb-enum-shares | smb | experimental | experimental | - |
-| smb-enum-shares-2 | smb | experimental | experimental | - |
-| smb-enum-shares-3 | smb | experimental | experimental | - |
-| smb-enum-users | smb | experimental | experimental | - |
-| smb-enum-users-2 | smb | experimental | experimental | - |
-| smb-enum-users-3 | smb | experimental | experimental | - |
-| smb-ls-2 | smb | experimental | experimental | - |
-| smb-ls-3 | smb | experimental | experimental | - |
-| smb-mbenum-2 | smb | experimental | experimental | - |
-| smb-mbenum-3 | smb | experimental | experimental | - |
-| smb-null-session-check-4 | smb | experimental | experimental | - |
-| smb-os-discovery | smb | experimental | experimental | - |
-| smb-os-discovery-2 | smb | experimental | experimental | - |
-| smb-os-discovery-3 | smb | experimental | experimental | - |
-| smb-protocols-check-4 | smb | experimental | experimental | - |
-| smb-security-mode | smb | experimental | experimental | - |
-| smb-security-mode-2 | smb | experimental | experimental | - |
-| smb-security-mode-3 | smb | experimental | experimental | - |
-| smb-security-mode-check-4 | smb | experimental | experimental | - |
-| smb-vuln-cve2017-7494-4 | smb | experimental | experimental | - |
-| smb-vuln-cve2020-1472-4 | smb | experimental | experimental | - |
-| smb-vuln-cve2021-34527-4 | smb | experimental | experimental | - |
-| smb-vuln-cve2021-44142-5 | smb | experimental | experimental | - |
-| smb-vuln-cve2022-24521-4 | smb | experimental | experimental | - |
-| smb-vuln-ms06-025-4 | smb | experimental | experimental | - |
-| smb-vuln-ms07-029-4 | smb | experimental | experimental | - |
+| smb-cve-2017-7494 | smb | detect | lab | lab/smb |
+| smb-cve-2021-44142 | smb | detect | lab | lab/smb |
+| smb-double-pulsar-backdoor | smb | experimental | experimental | - |
+| smb-os-discovery | smb | info | lab | lab/smb |
+| smb-protocols | smb | info | lab | lab/smb |
+| smb-security-mode | smb | info | lab | lab/smb |
+| smb-vuln-cve2020-0796 | smb | experimental | experimental | - |
 | smb-vuln-ms08-067 | smb | experimental | experimental | - |
-| smb-vuln-ms08-067-2 | smb | experimental | experimental | - |
-| smb-vuln-ms08-067-3 | smb | experimental | experimental | - |
-| smb-vuln-ms08-067-4 | smb | experimental | experimental | - |
-| smb-vuln-ms10-054-4 | smb | experimental | experimental | - |
-| smb-vuln-ms10-061-4 | smb | experimental | experimental | - |
 | smb-vuln-ms17-010 | smb | experimental | experimental | - |
-| smb-vuln-ms17-010-2 | smb | experimental | experimental | - |
-| smb-vuln-ms17-010-3 | smb | experimental | experimental | - |
-| smb-vuln-ms17-010-4 | smb | experimental | experimental | - |
-| smb-vuln-ms17-010-full | smb | experimental | experimental | - |
-| smb_version | smb | experimental | experimental | - |
+| smb_version | smb | info | lab | lab/smb |
 | smtp-commands-3 | services | experimental | experimental | - |
 | smtp-enum-users-3 | services | experimental | experimental | - |
 | smtp-open-relay-3 | services | experimental | experimental | - |

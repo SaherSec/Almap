@@ -63,6 +63,7 @@ add c-core-warnings  "for f in c/*.c; do gcc -std=c99 -Wall -Wextra -Werror -pth
 add unit-c-http      "gcc -std=c99 -Wall -Wextra -Werror -I c tests/test_http.c c/http.c -o '$WORK/test_http' && '$WORK/test_http'"
 add unit-c-drain     "gcc -std=c99 -Wall -Wextra -Werror -I c tests/test_drain.c -o '$WORK/test_drain' && '$WORK/test_drain'"
 add unit-c-ssh       "gcc -std=c99 -Wall -Wextra -Werror -Wno-unused-function -I c -I plugins tests/test_ssh.c -o '$WORK/test_ssh' && '$WORK/test_ssh'"
+add unit-c-smb       "gcc -std=c99 -Wall -Wextra -Werror -Wno-unused-function -I c -I plugins tests/test_smb.c -o '$WORK/test_smb' && '$WORK/test_smb'"
 add unit-goose       "setup_goose && goose build tests/test_almap.goose --cc gcc -o '$WORK/test_almap' && '$WORK/test_almap'"
 add lint-selftest    "bash tests/lint_plugins_selftest.sh"
 add lint-plugins     "bash tests/lint_plugins.sh"
