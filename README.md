@@ -27,9 +27,9 @@ $ sudo ./almap -t 192.168.1.10 -p 22,80,443 --scan syn --os --service --json
 |---|---|
 | **Async engine** | `--fast` runs one non-blocking `epoll` loop with up to 10,000 connects in flight. A token-bucket limits the rate. No root needed. |
 | **Scan modes** | TCP connect, raw SYN, raw UDP and host discovery (TCP ping plus ICMP echo). |
-| **OS fingerprinting** | Nmap-style T1–T7 + U1 probe sequence. Reads TTL, window, ISN, TCP options and IP-ID behaviour, then matches against an OS database. |
-| **Service detection** | Built-in heuristics plus a runtime regex database. You can import Nmap's full service-probe set (8k+ rules). |
-| **AlScript plugins** | Plain `.so` files that export one C function. No VM and no Lua. Ships with 623 C plugins in `almap/plugins/` (for example `http_title`, `http_methods`, `ssh_version`, `ftp_anon` and `redis_info`). |
+| **OS fingerprinting** | Nmap-style T1–T7 + U1 probe sequence. Reads TTL, window, ISN, TCP options and IP-ID behaviour. No OS database ships: import Nmap's with `tools/import_nmap_os.py` for named matches; without it you get coarse labels (`linux-like`, `windows-like`, …). |
+| **Service detection** | Built-in heuristics plus a runtime regex database. The shipped `signatures.db` has 6 rules; import Nmap's service-probe set (8k+ rules) with `tools/import_nmap.py`. |
+| **AlScript plugins** | Plain `.so` files that export one C function. No VM and no Lua. 623 plugins: about 100 full protocol checks, the rest fingerprint/experimental (see [Plugins](#plugins)). |
 | **Evasion** | IP fragmentation, custom MTU, up to 5 decoys and source-MAC spoofing. |
 | **Output** | Text, JSON, tab-separated table or XML. The order is always the same: targets as given, hosts ascending, ports as given. |
 | **IPv6** | Connect scans and discovery. |
@@ -48,7 +48,7 @@ export GOOSE_STDLIB=/path/to/goose/stdlib
 
 goose check almap.goose
 goose build almap.goose --cc gcc -o almap
-bash tools/build_plugins.sh        # optional: rebuild the AlScript plugins from plugins/*.c
+bash tools/build_plugins.sh        # optional: compile plugins/*.c into plugins/*.so
 ./almap --help
 ```
 
@@ -104,6 +104,17 @@ sudo setcap cap_net_raw+ep ./almap
 
 Run `./almap --help` for every flag and its rules. The full guide is in **[docs/GUIDE.md](docs/GUIDE.md)**.
 
+## Plugins
+
+`almap/plugins/` holds 623 C plugins. Most of them are small, and many are numbered variants (`-2` … `-5`) of the same probe:
+
+- **About 100 are full protocol checks.** They speak SMB, TLS, SSH, DNS, SNMP, MSSQL, MySQL, PostgreSQL, Oracle TNS, VNC or Kerberos and parse the reply. Examples: `smb-vuln-ms17-010-full`, `ssl-enum-ciphers`, `ssh-hostkey`, `kerberos-asreq-full`.
+- **The rest are fingerprints or experimental.** Most send one HTTP request or a fixed payload and match a status code or a substring. They hint that a product or an exposed path is there. They do not prove a vulnerability, even when the plugin is named after a CVE. Some only check that the port is open.
+
+`--script` runs one plugin per scan, on every open port. There is no category or port-based selection yet.
+
+The `.so` files committed in `plugins/` are builds of an unfinished Rust port (`almap/rust_plugins/`), not of the C sources. To run the C plugins, build them with `tools/build_plugins.sh`.
+
 ## Writing a plugin
 
 ```c
@@ -148,7 +159,7 @@ Data you import from Nmap stays under Nmap's license.
 |---|---|---|
 | Codebase | Small: Goose + C | Large: C++ / Lua |
 | Async connect engine | Yes, up to 10k in flight | Yes |
-| Scripting | Native C plugins | NSE (600+ Lua scripts) |
+| Scripting | Native C plugins (~100 full protocol checks) | NSE (600+ Lua scripts) |
 | IPv6 | Connect + discovery | Full |
 | Platforms | Linux | Cross-platform |
 
