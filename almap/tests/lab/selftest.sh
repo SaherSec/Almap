@@ -85,6 +85,38 @@ PY
 check "mock udp: replays the fixture for a datagram" $?
 stop_mock
 
+# ---- 1b. readiness: a port forwarder accepts before the service listens ---
+# lab_wait_port must not call a port ready while the peer accepts and
+# immediately closes (what a rootless port forwarder does while the
+# container's service is still starting).
+# shellcheck source=tests/lab/lib.sh
+. "$LAB/lib.sh"
+python3 -I - <<'PY' &
+import socket, time
+srv = socket.socket(); srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(("127.0.0.1", 19094)); srv.listen(8)
+start = time.time(); held = []
+while time.time() - start < 8:
+    srv.settimeout(0.2)
+    try:
+        c, _ = srv.accept()
+    except socket.timeout:
+        continue
+    if time.time() - start < 1.5:
+        c.close()            # forwarder with no backend yet
+    else:
+        held.append(c)       # service up: connection stays open
+PY
+FWD_PID=$!
+sleep 0.3
+t0=$(date +%s.%N)
+lab_wait_port 19094 10
+rc=$?
+t1=$(date +%s.%N)
+kill "$FWD_PID" 2>/dev/null; wait "$FWD_PID" 2>/dev/null
+[ "$rc" -eq 0 ] && awk -v a="$t0" -v b="$t1" 'BEGIN { exit !((b - a) >= 1.0) }'
+check "lab_wait_port waits out an accept-then-close forwarder" $?
+
 # ---- 2. the control family --------------------------------------------
 others_before=$(podman ps -a --format '{{.Names}}' | grep -v '^almaplab-' | sort)
 

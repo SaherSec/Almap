@@ -47,7 +47,11 @@ lab_down() {
     podman kube down "$1" >/dev/null 2>&1
 }
 
-# lab_wait_port PORT [SECONDS] - wait until 127.0.0.1:PORT accepts a connection
+# lab_wait_port PORT [SECONDS] - wait until 127.0.0.1:PORT is really serving.
+# A TCP connect is not enough: a rootless port forwarder accepts before the
+# container's service listens and then closes the connection. The port counts
+# as ready when the connection stays open (a service waiting for a request)
+# or delivers data (a banner), not when the peer closes straight away.
 lab_wait_port() {
     python3 -I - "$1" "${2:-60}" <<'PY'
 import socket, sys, time
@@ -55,10 +59,21 @@ port, limit = int(sys.argv[1]), float(sys.argv[2])
 end = time.time() + limit
 while time.time() < end:
     try:
-        socket.create_connection(("127.0.0.1", port), timeout=1).close()
-        sys.exit(0)
+        s = socket.create_connection(("127.0.0.1", port), timeout=1)
     except OSError:
         time.sleep(0.3)
+        continue
+    s.settimeout(0.5)
+    try:
+        ready = s.recv(1) != b""      # data: a banner; b"": closed at once
+    except socket.timeout:
+        ready = True                  # held open, waiting for a request
+    except OSError:
+        ready = False
+    s.close()
+    if ready:
+        sys.exit(0)
+    time.sleep(0.3)
 sys.exit(1)
 PY
 }
