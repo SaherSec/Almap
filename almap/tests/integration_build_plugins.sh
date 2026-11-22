@@ -5,7 +5,10 @@
 # (c) --clean removes .so files that have no .c,
 # (d) the whole tree builds warning-free (-Werror),
 # (e) naming a plugin builds only that one,
-# (g) an unknown plugin name is a failure.
+# (f) a worker dying without a report still fails the build,
+# (g) an unknown plugin name is a failure,
+# (h) BP_* in the caller's environment are ignored,
+# (i) a relative --out is relative to the caller's directory.
 # No network, no root, no listeners.
 # Exit: 0 = pass, 1 = fail.
 set -u
@@ -71,6 +74,42 @@ echo "ok (d): warning-free under -Werror"
 n=$(ls "$TMPD"/c/*.so | wc -l)
 [ "$n" -eq 1 ] || fail "(e) named build produced $n .so files, want 1"
 echo "ok (e): named build"
+
+# (f) a worker that dies without reporting must still fail the build
+REAL_GCC=$(command -v gcc)
+mkdir -p "$TMPD/fakebin" "$TMPD/rootf/plugins" "$TMPD/rootf/c"
+cat >"$TMPD/fakebin/gcc" <<FAKE
+#!/usr/bin/env bash
+case "\$*" in *zz_kill.c*) kill -9 "\$PPID" ;; esac
+exec $REAL_GCC "\$@"
+FAKE
+chmod +x "$TMPD/fakebin/gcc"
+cp plugins/*.h "$TMPD/rootf/plugins/"; cp c/*.h "$TMPD/rootf/c/"
+cp plugins/http_title.c "$TMPD/rootf/plugins/"
+cp plugins/http_title.c "$TMPD/rootf/plugins/zz_kill.c"
+PATH="$TMPD/fakebin:$PATH" PLUGINS_DIR="$TMPD/rootf/plugins" \
+    bash tools/build_plugins.sh --out "$TMPD/f" >"$TMPD/f.log" 2>&1
+rc=$?
+[ "$rc" -eq 1 ] || fail "(f) worker killed silently: exit $rc, want 1"
+grep -q 'worker' "$TMPD/f.log" || fail "(f) output does not mention the failed worker"
+echo "ok (f): silent worker death fails the build"
+
+# (h) a stray BP_WERROR in the caller's environment must not enable -Werror
+mkdir -p "$TMPD/rooth/plugins" "$TMPD/rooth/c"
+cp plugins/*.h "$TMPD/rooth/plugins/"; cp c/*.h "$TMPD/rooth/c/"
+cp plugins/http_title.c "$TMPD/rooth/plugins/zz_warn.c"
+echo 'static int zz_unused_variable;' >>"$TMPD/rooth/plugins/zz_warn.c"
+BP_WERROR=1 PLUGINS_DIR="$TMPD/rooth/plugins" \
+    bash tools/build_plugins.sh --out "$TMPD/h" >"$TMPD/h.log" 2>&1 \
+    || fail "(h) BP_WERROR in the environment changed the build"
+echo "ok (h): BP_* from the caller's environment are ignored"
+
+# (i) a relative --out is relative to the caller's directory
+HERE=$PWD
+(cd "$TMPD" && bash "$HERE/tools/build_plugins.sh" --out rel_out http_title >"$TMPD/i.log" 2>&1) \
+    || fail "(i) relative --out build failed"
+[ -f "$TMPD/rel_out/http_title.so" ] || fail "(i) rel_out/http_title.so not in the caller's directory"
+echo "ok (i): relative --out"
 
 # (g) an unknown name is a failure
 bash tools/build_plugins.sh --out "$TMPD/g" no_such_plugin >"$TMPD/g.log" 2>&1

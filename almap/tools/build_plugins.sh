@@ -14,6 +14,7 @@
 #     NAME...     build only these plugins (default: all *.c)
 # Environment:
 #   PLUGINS_DIR   directory holding the .c files (default: plugins)
+#                 (a relative --out or PLUGINS_DIR is relative to the caller's directory)
 #   JOBS          parallel compiles (default: number of CPUs)
 #
 # A plugin that includes <openssl/...> is linked with -lssl -lcrypto.
@@ -22,13 +23,23 @@
 
 set -uo pipefail
 
+CALLER_PWD="$PWD"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR" || exit 1
 
-SRC_DIR="${PLUGINS_DIR:-plugins}"
-OUT_DIR="${BP_OUT:-}"      # BP_* are handed to the parallel workers
-WERROR="${BP_WERROR:-0}"
+# Relative --out / PLUGINS_DIR are relative to the caller's directory;
+# the default source dir "plugins" is relative to the repository root.
+abspath() {
+    case "$1" in
+        /*) printf '%s' "$1" ;;
+        *) printf '%s/%s' "$CALLER_PWD" "$1" ;;
+    esac
+}
+SRC_DIR="plugins"
+[ -n "${PLUGINS_DIR:-}" ] && SRC_DIR="$(abspath "$PLUGINS_DIR")"
+OUT_DIR=""
+WERROR=0
 CLEAN=0
 ONE=""
 names=()
@@ -37,12 +48,14 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --out)
             [ $# -ge 2 ] || { echo "[build_plugins] error: --out needs a directory" >&2; exit 2; }
-            OUT_DIR="$2"; shift 2 ;;
+            OUT_DIR="$(abspath "$2")"; shift 2 ;;
         --werror) WERROR=1; shift ;;
         --clean) CLEAN=1; shift ;;
         --one)
-            # internal: build a single plugin (used by the parallel driver)
-            ONE="$2"; shift 2 ;;
+            # internal: build one plugin for the parallel driver. Only here
+            # are the BP_* hand-off variables read, so a stray BP_* in the
+            # caller's environment cannot change a normal run.
+            ONE="$2"; OUT_DIR="${BP_OUT:-}"; WERROR="${BP_WERROR:-0}"; shift 2 ;;
         -h|--help)
             sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
             exit 0 ;;
@@ -123,8 +136,14 @@ export BP_FAILED
 trap 'rm -f "$BP_FAILED"' EXIT
 
 printf '%s\0' "${names[@]}" | xargs -0 -n1 -P "$JOBS" bash "$0" --one
+xrc=$?
 
 failed=$(wc -l <"$BP_FAILED")
+if [ "$xrc" -ne 0 ] && [ "$failed" -eq 0 ]; then
+    # A worker died (signal, OOM, could not start) without reporting a plugin.
+    echo "[build_plugins] error: a build worker died without reporting (xargs exit $xrc); some plugins were not built" >&2
+    exit 1
+fi
 ok=$((total - failed))
 echo "[build_plugins] done: $ok built, $failed failed" >&2
 [ "$failed" -eq 0 ]
