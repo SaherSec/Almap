@@ -3,3 +3,14 @@ ALMAP_REVIEW.md
 
 # Local working copy
 almap-opencode-rust/
+almap-claude/
+almap-opencode/
+
+# Agent workspace
+.superpowers/
+
+# Build products
+*.so
+*.o
+/almap/almap
+/almap/dist/
