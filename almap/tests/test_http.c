@@ -634,6 +634,79 @@ static void test_drain_flood(void) {
     close(lfd);
 }
 
+/* A peer that never reads must not hold almap_http_send past its total
+ * budget, even when the socket has a 5 s SO_SNDTIMEO like a handed-out fd. */
+static void test_send_deadline(void) {
+    int sv[2];
+    int small = 2048;
+    struct timeval tv;
+    unsigned char *blob;
+    long long t0;
+    long long ms;
+    int rc;
+    const int len = 1024 * 1024;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0) {
+        expect("send deadline: socketpair", 0);
+        return;
+    }
+    (void)setsockopt(sv[0], SOL_SOCKET, SO_SNDBUF, &small, sizeof(small));
+    (void)setsockopt(sv[1], SOL_SOCKET, SO_RCVBUF, &small, sizeof(small));
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    (void)setsockopt(sv[0], SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    blob = (unsigned char *)calloc(1, (size_t)len);
+    setenv("ALMAP_WEB_SEND_BASE_MS", "300", 1);
+    t0 = now_ms();
+    rc = almap_http_send(sv[0], blob, len);
+    ms = now_ms() - t0;
+    /* budget = 300 ms + 1000 ms/MiB * 1 MiB = 1300 ms */
+    printf("     send to a never-reading peer: rc=%d after %lld ms\n", rc, ms);
+    expect("send deadline: never-reading peer fails", rc == -1);
+    expect("send deadline: within budget + margin (< 2000 ms)", ms < 2000);
+    close(sv[0]);
+    close(sv[1]);
+    unsetenv("ALMAP_WEB_SEND_BASE_MS");
+    free(blob);
+}
+
+static void test_send_ok(void) {
+    int sv[2];
+    pid_t r;
+    int st = 0;
+    unsigned char *blob;
+    const int len = 300000;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0) {
+        expect("send ok: socketpair", 0);
+        return;
+    }
+    blob = (unsigned char *)calloc(1, (size_t)len);
+    r = fork();
+    if (r == 0) {
+        char tmp[4096];
+        long got = 0;
+
+        close(sv[0]);
+        while (got < len) {
+            ssize_t n = read(sv[1], tmp, sizeof(tmp));
+            if (n <= 0) {
+                break;
+            }
+            got += n;
+        }
+        _exit(got == len ? 0 : 1);
+    }
+    close(sv[1]);
+    expect("send ok: a reading peer gets all bytes",
+           almap_http_send(sv[0], blob, len) == 0);
+    close(sv[0]);
+    waitpid(r, &st, 0);
+    expect("send ok: peer received all bytes",
+           WIFEXITED(st) && WEXITSTATUS(st) == 0);
+    free(blob);
+}
+
 int main(int argc, char **argv) {
     if (argc > 2 && strcmp(argv[1], "-t") == 0) {
         return fake_scanner(argv[2]);
@@ -644,6 +717,8 @@ int main(int argc, char **argv) {
     test_scan();
     test_drain();
     test_drain_flood();
+    test_send_deadline();
+    test_send_ok();
     check_cl("absent", H(""), 0, 0);
     check_cl("12", H("Content-Length: 12\r\n"), 1, 12);
     check_cl("zero", H("Content-Length: 0\r\n"), 1, 0);

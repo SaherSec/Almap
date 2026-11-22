@@ -47,9 +47,13 @@ extern "C" {
  *   bytes, cap >= 2.
  *
  * almap_http_send(client_fd, buf, len):
- *   Writes all len bytes (send loop with MSG_NOSIGNAL) so a closed
- *   client cannot kill the server with SIGPIPE. Returns 0 on success,
- *   -1 on failure. len may be 0 (no-op).
+ *   Writes all len bytes (poll(POLLOUT) + non-blocking send with
+ *   MSG_NOSIGNAL) so a closed client cannot kill the server with
+ *   SIGPIPE. The whole call is bounded by ALMAP_WEB_SEND_BASE_MS +
+ *   ALMAP_WEB_SEND_PER_MIB_MS per MiB of len (total wall clock, not per
+ *   send): a client that reads too slowly is given up on. Returns 0 on
+ *   success, -1 on failure or budget exhaustion (the caller closes the
+ *   fd). len may be 0 (no-op).
  *
  * almap_http_close(fd):
  *   Closes fd. Returns 0 on success, -1 on failure.
@@ -130,6 +134,13 @@ extern "C" {
  * variable of the same name (read once, ignored when invalid). */
 #define ALMAP_WEB_MAX_CLIENTS 32
 #define ALMAP_WEB_REQ_DEADLINE_MS 2000
+
+/* Total send budget per response part: BASE + PER_MIB per MiB sent, on
+ * the monotonic clock (a slow reader cannot stall the server longer).
+ * ALMAP_WEB_SEND_BASE_MS may be overridden by an environment variable of
+ * the same name (1..600000 ms; ignored when invalid). */
+#define ALMAP_WEB_SEND_BASE_MS 5000
+#define ALMAP_WEB_SEND_PER_MIB_MS 1000
 
 /* almap_http_next event kinds. */
 #define ALMAP_EV_REQUEST 1

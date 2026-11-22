@@ -1143,18 +1143,53 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
     }
 }
 
+/* Total wall-clock budget for one send of len bytes: base + per-MiB. The
+ * base may be overridden by ALMAP_WEB_SEND_BASE_MS (1..600000). */
+static long long send_budget_ms(int len) {
+    long long base = env_limit("ALMAP_WEB_SEND_BASE_MS",
+                               ALMAP_WEB_SEND_BASE_MS, 1, 600000);
+
+    return base + (long long)ALMAP_WEB_SEND_PER_MIB_MS * len / (1024 * 1024);
+}
+
 int almap_http_send(int client_fd, const unsigned char *buf, int len) {
     int sent = 0;
+    long long deadline;
 
     if (client_fd < 0 || len < 0 || (len > 0 && buf == NULL)) {
         return -1;
     }
+    deadline = mono_ms() + send_budget_ms(len);
     while (sent < len) {
-        ssize_t n = send(client_fd, buf + sent, (size_t)(len - sent),
-                         MSG_NOSIGNAL);
+        long long left = deadline - mono_ms();
+        struct pollfd pf;
+        ssize_t n;
+        int pr;
 
-        if (n < 0) {
+        if (left <= 0) {
+            return -1;
+        }
+        pf.fd = client_fd;
+        pf.events = POLLOUT;
+        pf.revents = 0;
+        pr = poll(&pf, 1, left > INT_MAX ? INT_MAX : (int)left);
+        if (pr < 0) {
             if (errno == EINTR) {
+                continue;
+            }
+            return -1;
+        }
+        if (pr == 0) {
+            return -1;
+        }
+        if ((pf.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0 &&
+            (pf.revents & POLLOUT) == 0) {
+            return -1;
+        }
+        n = send(client_fd, buf + sent, (size_t)(len - sent),
+                 MSG_NOSIGNAL | MSG_DONTWAIT);
+        if (n < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
                 continue;
             }
             return -1;

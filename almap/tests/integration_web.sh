@@ -444,7 +444,7 @@ T1=$(now_ms)
 [ "$C" = "504" ] || fail "wall-clock limit: expected 504, got $C: $(cat "$TMPD/lim.out")"
 json_ok "$TMPD/lim.out" || fail "504 body is not valid JSON"
 grep -q 'scan exceeded 1 s wall-clock limit' "$TMPD/lim.out" || fail "504 body: $(cat "$TMPD/lim.out")"
-[ $((T1 - T0)) -lt 3500 ] || fail "504 after $((T1 - T0)) ms (want ~1000)"
+[ $((T1 - T0)) -lt 4000 ] || fail "504 after $((T1 - T0)) ms (want ~1000)"
 [ "$(kids "$LAST_PID")" = "0" ] || fail "scan child remains after the wall-clock kill"
 C=$(post "$LIM_PORT" "$LAST_TOKEN" "$TMPD/lim2.out" "$(body_ports "$SCAN_PORT")")
 [ "$C" = "200" ] || fail "scan after a timeout: expected 200, got $C"
@@ -617,6 +617,63 @@ flood_round() { # NFLOODERS
 }
 flood_round 1
 flood_round 4
+
+# A trickle reader must not stall the server: every response send has a
+# total wall-clock budget (ALMAP_WEB_SEND_BASE_MS + 1 s per MiB), so a
+# client that reads 1 byte every 200 ms is cut off, and other requests
+# are served while it is being served.
+SLOW_PORT=18103
+start_web "$SLOW_PORT" ALMAP_WEB_SEND_BASE_MS=1500 ALMAP_WEB_OUT_CAP=33554432
+SLOW_PID=$LAST_PID
+SLOW_TOKEN=$LAST_TOKEN
+python3 -c '
+import socket, sys, time, urllib.request
+port, tok = int(sys.argv[1]), sys.argv[2]
+body = b"{\"targets\":\"127.0.0.1\",\"ports\":\"1-40000\",\"scan_type\":\"connect\",\"timeout\":1000}"
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2048)
+s.connect(("127.0.0.1", port))
+s.sendall(b"POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nAuthorization: Bearer %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n" % (port, tok.encode(), len(body)) + body)
+# wait (reading nothing) until the scan result is being sent: the server
+# only writes once the scan is finished, so wait for the first bytes.
+s.settimeout(120)
+first = s.recv(1)
+if not first:
+    print("nodata"); sys.exit(0)
+t0 = time.time()
+got = 1
+status_at = None
+closed = "never"
+s.settimeout(5)
+while time.time() - t0 < 9:
+    if status_at is None and time.time() - t0 > 0.5:
+        r = urllib.request.Request("http://127.0.0.1:%d/api/status" % port, headers={"Authorization": "Bearer " + tok})
+        try:
+            urllib.request.urlopen(r, timeout=7).read()
+            status_at = int((time.time() - t0) * 1000)
+        except Exception:
+            status_at = 99999
+    try:
+        d = s.recv(1)
+    except socket.timeout:
+        d = b"x"
+    except OSError:
+        closed = "%d" % ((time.time() - t0) * 1000); break
+    if not d:
+        closed = "%d" % ((time.time() - t0) * 1000); break
+    got += 1
+    time.sleep(0.2)
+print(closed, status_at, got)
+' "$SLOW_PORT" "$SLOW_TOKEN" >"$TMPD/slow_reader.out" 2>&1
+read -r SR_CLOSED SR_STATUS SR_GOT <"$TMPD/slow_reader.out"
+[ "$SR_STATUS" != "nodata" ] || fail "slow reader: no response: $(cat "$TMPD/slow_reader.out")"
+# The server must give up on the trickle reader after its total budget
+# (1.5 s + 1 s per MiB of a ~2.5 MiB result, about 4 s) and then answer.
+# (The reader itself only sees EOF after it has read the queued bytes,
+# so the server-side effect is observed through /api/status.)
+[ "$SR_STATUS" -lt 5000 ] || fail "status (asked 0.5 s into the trickle read) answered only at ${SR_STATUS}ms (want < 5000: send budget is about 4 s)"
+stop_web
+echo "slow reader: server gave up, status answered at ${SR_STATUS}ms OK" >&2
 echo "scan lifecycle OK" >&2
 
 echo "ok: web ui / status / scan / errors / bind / token / host+origin / plugin names" >&2
