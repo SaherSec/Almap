@@ -26,8 +26,8 @@ case "$start_probe" in
         echo "skipping timing assertion: date +%s%N unavailable"
         ./almap -t 127.0.0.1 -p 1-20 --scan connect --rate 5 --timeout 100 >/dev/null || exit 1
         ./almap -t 127.0.0.1 -p 1-20 --scan connect --rate 0 --timeout 100 >/dev/null || exit 1
-        echo "integration test passed: timing skipped"
-        exit 0
+        echo "SKIP: the timing assertion did not run (date +%s%N unavailable); the functional checks passed" >&2
+        exit 77
         ;;
 esac
 

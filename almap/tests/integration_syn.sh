@@ -62,11 +62,11 @@ echo "evasion CLI parsing checks passed" >&2
 if command -v python3 >/dev/null 2>&1; then
     if ! python3 -c 'import socket; s=socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP); s.close()' >/dev/null 2>&1; then
         echo "skipping SYN integration test: not root and CAP_NET_RAW is unavailable"
-        exit 0
+        exit 77
     fi
 elif [ "$(id -u)" -ne 0 ]; then
     echo "skipping SYN integration test: not root and CAP_NET_RAW is unavailable"
-    exit 0
+    exit 77
 fi
 
 # Also skip cleanly if this process has no CAP_NET_RAW but is root on a
@@ -86,7 +86,7 @@ pre_output=$(./almap -t "$HOST" -p "$PORT" --scan syn --timeout 1000 2>&1 || tru
 case "$pre_output" in
     *"SYN scan requires root or CAP_NET_RAW"*)
         echo "skipping SYN integration test: not root and CAP_NET_RAW is unavailable (almap check)"
-        exit 0
+        exit 77
         ;;
 esac
 
@@ -126,7 +126,9 @@ output=$(./almap -t "$HOST" -p "$PORT" --scan syn --timeout 1000)
 status=$?
 echo "$output"
 
-# Allow the listener to finish/close after one connection.
+# The listener only keeps the port open for the SYN scan. A SYN scan never
+# completes a connection, so the listener would wait forever: stop it.
+kill "$LISTENER_PID" 2>/dev/null || true
 wait "$LISTENER_PID" 2>/dev/null || true
 LISTENER_PID=""
 

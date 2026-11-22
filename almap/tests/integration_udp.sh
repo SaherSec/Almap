@@ -89,9 +89,8 @@ probe_status=$?
 if [ "$probe_status" -eq 1 ]; then
     case "$probe_output" in
         *"UDP scan requires root or CAP_NET_RAW"*)
-            echo "SKIP: UDP scan requires root or CAP_NET_RAW; raw-socket checks skipped" >&2
-            echo "integration test passed (privilege-skipping mode): --scan udp validation errors and privilege text are correct"
-            exit 0
+            echo "SKIP: UDP scan requires root or CAP_NET_RAW; the validation checks passed but the raw-socket checks did not run" >&2
+            exit 77
             ;;
     esac
     echo "$probe_output" >&2

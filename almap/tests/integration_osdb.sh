@@ -22,11 +22,11 @@ CLOSED_PORT=12356
 if command -v python3 >/dev/null 2>&1; then
     if ! python3 -c 'import socket; s=socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP); s.close()' >/dev/null 2>&1; then
         echo "skipping OS DB integration test: not root and CAP_NET_RAW is unavailable"
-        exit 0
+        exit 77
     fi
 elif [ "$(id -u)" -ne 0 ]; then
     echo "skipping OS DB integration test: not root and CAP_NET_RAW is unavailable"
-    exit 0
+    exit 77
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -48,7 +48,7 @@ pre_output=$(./almap -t "$HOST" -p "$PORT" --scan syn --os --timeout 1000 2>&1 |
 case "$pre_output" in
     *"error: --os requires --scan syn and root or CAP_NET_RAW"*)
         echo "skipping OS DB integration test: not root and CAP_NET_RAW is unavailable (almap check)"
-        exit 0
+        exit 77
         ;;
 esac
 
