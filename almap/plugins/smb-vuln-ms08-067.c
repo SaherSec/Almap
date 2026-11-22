@@ -1,37 +1,21 @@
-/* smb-vuln-ms08-067 - Conficker/MS08-067 SMBv1 exposure check. */
-#include "arsenal_smb.h"
+/* smb-vuln-ms08-067 - experimental: reports which SMB dialects answer and says plainly
+ * that MS08-067 (CVE-2008-4250) is not decided. It needs SMB1 and the SRVSVC pipe. */
+#include "arsenal_smbx.h"
 
 int almap_script_run(AlScriptContext *ctx) {
-    unsigned char resp[2048];
-    char os[256];
-    char lan[256];
-    unsigned int uid = 0;
-    unsigned int dialect;
-    int fd = -1;
-    int n;
+    ArxSmb1Neg n1;
+    int r;
 
     if (!ar_valid(ctx)) {
         return 1;
     }
-    n = ar_smb1_negotiate(ctx, resp, sizeof(resp));
-    if (n < 0) {
-        ar_out(ctx, "smb-vuln-ms08-067: INFO MS08-067: SMB service not reachable");
-        return 0;
-    }
-    dialect = ar_smb1_dialect(resp, n);
-    if (dialect > 5) {
-        ar_out(ctx, "smb-vuln-ms08-067: INFO MS08-067: SMBv1 not offered (dialect 0x%04x)", dialect);
-        return 0;
-    }
-    (void)ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
-                               lan, sizeof(lan));
-    if (fd >= 0) {
-        close(fd);
-    }
-    ar_out(ctx, "smb-vuln-ms08-067: INFO potentially matches probe for: MS08-067 (SMBv1 %s; patch level not confirmed)",
-           ar_smb1_dialect_name(dialect));
-    if (os[0] != '\0') {
-        ar_append(ctx, " OS=%s", os);
+    r = arx_smb1_negotiate(ctx, &n1, NULL);
+    if (r == 1) {
+        ar_out(ctx, "smb-vuln-ms08-067: INFO SMB1 (NT LM 0.12) is accepted; MS08-067 (CVE-2008-4250) is not decided: the pipe probe is not implemented, there is no Windows target with the flaw to verify it against");
+    } else if (r == 0) {
+        ar_out(ctx, "smb-vuln-ms08-067: INFO SMB1 is not accepted; MS08-067 (CVE-2008-4250) is not decided");
+    } else {
+        ar_out(ctx, "smb-vuln-ms08-067: INFO no SMB response; MS08-067 (CVE-2008-4250) is not decided");
     }
     return 0;
 }

@@ -1,0 +1,53 @@
+# check	role	port	expect   (see tests/lab/lib.sh)
+# smb_version: the dialect the server picks when offered all of them
+smb_version	smb463	19301	match:^smb_version: SMB 3\.1\.1$
+smb_version	smb4122	19302	match:^smb_version: SMB 3\.1\.1$
+smb_version	smb4238	19303	match:^smb_version: SMB 3\.1\.1$
+smb_version	smb4238nt1	19304	match:^smb_version: SMB 3\.1\.1$
+smb_version	smb4238v2	19305	match:^smb_version: SMB 2\.1$
+smb_version	smb4238v3	19306	match:^smb_version: SMB 3\.1\.1$
+smb_version	fixture	19090	fixture:neg-plain-http:match:^smb_version: no SMB response
+# smb-protocols: the accepted set must equal what smbclient reports with each dialect pinned
+smb-protocols	smb463	19301	oracle:protocols
+smb-protocols	smb4122	19302	oracle:protocols
+smb-protocols	smb4238	19303	oracle:protocols
+smb-protocols	smb4238nt1	19304	oracle:protocols
+smb-protocols	smb4238v2	19305	oracle:protocols
+smb-protocols	smb4238v3	19306	oracle:protocols
+smb-protocols	fixture	19090	fixture:neg-plain-http:match:^smb-protocols: no SMB response
+# smb-security-mode: equal to a second client written from the protocol documents; the two configured extremes are also pinned
+smb-security-mode	smb463	19301	oracle:signing
+smb-security-mode	smb4122	19302	oracle:signing
+smb-security-mode	smb4238	19303	oracle:signing
+smb-security-mode	smb4238nt1	19304	oracle:signing
+smb-security-mode	smb4238v2	19305	oracle:signing
+smb-security-mode	smb4238v3	19306	oracle:signing
+smb-security-mode	smb4238	19303	match:^smb-security-mode: SMB2 message signing enabled but not required$
+smb-security-mode	smb4238nt1	19304	match:SMB2 message signing required; SMB1 message signing required
+smb-security-mode	fixture	19090	fixture:neg-plain-http:match:^smb-security-mode: no SMB response
+# smb-os-discovery: names the servers were configured with (netbios name LABSMB, workgroup LABGROUP) and the version their own smbd -V reports
+smb-os-discovery	smb463	19301	match:^smb-os-discovery: via SMB1; OS Windows 6\.1; LAN Manager Samba 4\.6\.3; workgroup MYGROUP; NetBIOS computer
+smb-os-discovery	smb4122	19302	match:^smb-os-discovery: via SMB1; OS Windows 6\.1; LAN Manager Samba 4\.12\.2; workgroup LABGROUP; NetBIOS computer LABSMB;
+smb-os-discovery	smb4238	19303	match:^smb-os-discovery: via SMB2; NetBIOS computer LABSMB; NetBIOS domain LABSMB;
+smb-os-discovery	smb4238nt1	19304	match:^smb-os-discovery: via SMB1; OS Windows 6\.1; LAN Manager Samba 4\.23\.8; workgroup LABGROUP; NetBIOS computer LABSMB;
+smb-os-discovery	smb4238v2	19305	match:^smb-os-discovery: via SMB2; NetBIOS computer LABSMB;
+smb-os-discovery	smb4238v3	19306	match:^smb-os-discovery: via SMB2; NetBIOS computer LABSMB;
+smb-os-discovery	fixture	19090	fixture:neg-plain-http:match:^smb-os-discovery: no SMB response
+# smb-cve-2017-7494: banner version of the real Samba releases; SMB2-only servers disclose no version and must say INFO
+smb-cve-2017-7494	smb463	19301	match:^smb-cve-2017-7494: DETECTED Samba
+smb-cve-2017-7494	smb4122	19302	match:^smb-cve-2017-7494: NOT DETECTED Samba
+smb-cve-2017-7494	smb4238	19303	match:^smb-cve-2017-7494: INFO SMB1 not accepted
+smb-cve-2017-7494	smb4238nt1	19304	match:^smb-cve-2017-7494: NOT DETECTED Samba
+smb-cve-2017-7494	smb4238v2	19305	match:^smb-cve-2017-7494: INFO SMB1 not accepted
+smb-cve-2017-7494	smb4238v3	19306	match:^smb-cve-2017-7494: INFO SMB1 not accepted
+smb-cve-2017-7494	fixture	19090	fixture:neg-plain-http:match:^smb-cve-2017-7494: INFO no SMB response
+smb-cve-2017-7494	fixture	19090	fixture:neg-plain-http:nomatch:DETECTED
+# smb-cve-2021-44142: banner version of the real Samba releases; SMB2-only servers disclose no version and must say INFO
+smb-cve-2021-44142	smb463	19301	match:^smb-cve-2021-44142: DETECTED Samba
+smb-cve-2021-44142	smb4122	19302	match:^smb-cve-2021-44142: DETECTED Samba
+smb-cve-2021-44142	smb4238	19303	match:^smb-cve-2021-44142: INFO SMB1 not accepted
+smb-cve-2021-44142	smb4238nt1	19304	match:^smb-cve-2021-44142: NOT DETECTED Samba
+smb-cve-2021-44142	smb4238v2	19305	match:^smb-cve-2021-44142: INFO SMB1 not accepted
+smb-cve-2021-44142	smb4238v3	19306	match:^smb-cve-2021-44142: INFO SMB1 not accepted
+smb-cve-2021-44142	fixture	19090	fixture:neg-plain-http:match:^smb-cve-2021-44142: INFO no SMB response
+smb-cve-2021-44142	fixture	19090	fixture:neg-plain-http:nomatch:DETECTED
