@@ -7,7 +7,7 @@ int almap_script_run(AlScriptContext *ctx) {
         "mac-s2c", "comp-c2s", "comp-s2c", "lang-c2s", "lang-s2c"
     };
     static const char *pairs[4] = { "enc", "mac", "comp", "lang" };
-    char omitted[128] = "";
+    char omitted[96] = "";
     char banner[256];
     char val[4096];
     static unsigned char kex[AR_SSH_PACKET_MAX];
@@ -45,13 +45,15 @@ int almap_script_run(AlScriptContext *ctx) {
             label = pairs[(i - 2) / 2];
             i++;                                 /* the s2c twin is the same */
         }
-        if (strlen(ctx->output_buf) + 2 + strlen(label) + 2 + strlen(val) + 64 <
+        if (strlen(ctx->output_buf) + 2 + strlen(label) + 2 + strlen(val) + 160 <
             (size_t)ctx->output_max) {
             ar_append(ctx, "%s%s: %s", lines > 0 ? "; " : "", label, val);
             lines++;
         } else {
             size_t used = strlen(omitted);
-            snprintf(omitted + used, sizeof(omitted) - used, "%s%s", used > 0 ? ", " : "", label);
+            if (used + strlen(label) + 3 < sizeof(omitted)) {
+                snprintf(omitted + used, sizeof(omitted) - used, "%s%s", used > 0 ? ", " : "", label);
+            }
         }
     }
     if (omitted[0] != '\0') {

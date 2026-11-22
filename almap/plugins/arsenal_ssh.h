@@ -14,6 +14,8 @@
 
 #include "arsenal_util.h"
 
+#include <poll.h>
+
 #define AR_SSH_MSG_DISCONNECT 1
 #define AR_SSH_MSG_KEXINIT 20
 #define AR_SSH_MSG_ECDH_INIT 30
@@ -30,6 +32,76 @@ static inline void ar_ssh_put_u32(unsigned char *p, unsigned int v) {
 static inline unsigned int ar_ssh_get_u32(const unsigned char *p) {
     return ((unsigned int)p[0] << 24) | ((unsigned int)p[1] << 16) |
            ((unsigned int)p[2] << 8) | (unsigned int)p[3];
+}
+
+/* One time budget per connection: identification line plus KEXINIT and the
+ * reply must finish within it, however slowly the peer drips bytes. Set by
+ * ar_ssh_open (2 x the plugin timeout); plugins run one at a time. */
+static long long ar_ssh_deadline_ms;
+
+static inline long long ar_ssh_now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* wait for input until the connection deadline; 1 = readable, 0 = out of time/error */
+static inline int ar_ssh_wait(int fd) {
+    struct pollfd pfd;
+    long long left = ar_ssh_deadline_ms - ar_ssh_now_ms();
+    int pr;
+    if (left <= 0) {
+        return 0;
+    }
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    pr = poll(&pfd, 1, left > 2000000 ? 2000000 : (int)left);
+    return pr > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0;
+}
+
+/* read exactly n bytes before the deadline; 0 on success */
+static inline int ar_ssh_read_exact(int fd, unsigned char *buf, size_t n) {
+    size_t got = 0;
+    while (got < n) {
+        ssize_t r;
+        if (!ar_ssh_wait(fd)) {
+            return -1;
+        }
+        r = recv(fd, buf + got, n - got, 0);
+        if (r < 0 && errno == EINTR) {
+            continue;
+        }
+        if (r <= 0) {
+            return -1;
+        }
+        got += (size_t)r;
+    }
+    return 0;
+}
+
+/* read one line (up to LF) before the deadline; returns its length, 0 on failure */
+static inline int ar_ssh_read_line(int fd, char *buf, size_t cap) {
+    size_t total = 0;
+    while (total + 1 < cap) {
+        ssize_t r;
+        if (!ar_ssh_wait(fd)) {
+            break;
+        }
+        r = recv(fd, buf + total, 1, 0);
+        if (r < 0 && errno == EINTR) {
+            continue;
+        }
+        if (r <= 0) {
+            break;
+        }
+        total++;
+        if (buf[total - 1] == '\n') {
+            break;
+        }
+    }
+    buf[total] = '\0';
+    return (int)total;
 }
 
 /* Connect and exchange identification strings (RFC 4253 4.2): the server may
@@ -49,8 +121,9 @@ static inline int ar_ssh_open(AlScriptContext *ctx, char *banner, size_t cap) {
     if (fd < 0) {
         return -1;
     }
+    ar_ssh_deadline_ms = ar_ssh_now_ms() + 2LL * ctx->timeout_ms;
     for (i = 0; i < 16; i++) {
-        int n = as_recv_line(fd, banner, cap, ctx->timeout_ms);
+        int n = ar_ssh_read_line(fd, banner, cap);
         if (n <= 0) {
             break;
         }
@@ -102,14 +175,15 @@ static inline int ar_ssh_recv_packet(int fd, unsigned char *payload, size_t cap,
     if (payload == NULL || cap < 2) {
         return -1;
     }
-    if (as_recv_exact(fd, hdr, 4, timeout_ms) != 0) {
+    (void)timeout_ms;
+    if (ar_ssh_read_exact(fd, hdr, 4) != 0) {
         return -1;
     }
     plen = ar_ssh_get_u32(hdr);
     if (plen < 6 || plen > sizeof(buf)) {
         return -1;
     }
-    if (as_recv_exact(fd, buf, plen, timeout_ms) != 0) {
+    if (ar_ssh_read_exact(fd, buf, plen) != 0) {
         return -1;
     }
     pad = buf[0];
@@ -187,12 +261,11 @@ static inline int ar_ssh_kex_field(const unsigned char *payload, int len, int fi
             return -1;
         }
         if (i == field) {
-            size_t copy = n;
-            if (copy >= cap) {
-                copy = cap - 1;
+            if (n >= cap) {
+                return -1;                 /* never hand back a cut list */
             }
-            memcpy(out, payload + off, copy);
-            out[copy] = '\0';
+            memcpy(out, payload + off, n);
+            out[n] = '\0';
             return 0;
         }
         off += (int)n;
@@ -428,7 +501,11 @@ static inline int ar_ssh_describe_key(const unsigned char *blob, int len, char *
     }
     ar_sha256(blob, (size_t)len, digest);
     ar_b64_nopad(digest, 32, fp, sizeof(fp));
-    snprintf(out, cap, "%s %d SHA256:%s", type, bits, fp);
+    if (bits > 0) {
+        snprintf(out, cap, "%s %d SHA256:%s", type, bits, fp);
+    } else {
+        snprintf(out, cap, "%s (size not read) SHA256:%s", type, fp);
+    }
     return 0;
 }
 
@@ -460,7 +537,7 @@ static inline void ar_ssh_parse_openssh(const char *banner, ArOpenSshVer *v) {
         return;
     }
     n = strtol(p, &end, 10);
-    if (end == p || *end != '.' || n > 1000) {
+    if (end == p || *end != '.' || n > 99) {
         return;
     }
     v->major = (int)n;
@@ -469,7 +546,7 @@ static inline void ar_ssh_parse_openssh(const char *banner, ArOpenSshVer *v) {
         return;
     }
     n = strtol(p, &end, 10);
-    if (n > 1000) {
+    if (n > 99) {
         return;
     }
     v->minor = (int)n;
@@ -480,6 +557,9 @@ static inline void ar_ssh_parse_openssh(const char *banner, ArOpenSshVer *v) {
     }
     if (*p == 'p' && p[1] >= '0' && p[1] <= '9') {
         n = strtol(p + 1, &end, 10);
+        if (n > 99) {
+            return;                           /* out of range: never wrapped into a level */
+        }
         v->portable = (int)n;
         p = end;
     }
@@ -489,6 +569,28 @@ static inline void ar_ssh_parse_openssh(const char *banner, ArOpenSshVer *v) {
         return;                           /* something we do not understand */
     }
     v->ok = 1;
+}
+
+/* ---- the version decisions, kept here so a unit test can check every boundary.
+ * Return 1 = in the affected range, 2 = outside it, 0 = not decided by the banner. */
+
+/* CVE-2024-6387: 8.5p1 up to (not including) 9.8p1; below 4.4 depends on old patches */
+static inline int ar_ssh_cve_2024_6387(const ArOpenSshVer *v) {
+    int ver = v->major * 100 + v->minor;
+    if (ver < 404) return 0;
+    return (ver >= 805 && ver < 908) ? 1 : 2;
+}
+
+/* CVE-2023-38408: before 9.3p2; "9.3" with no pN cannot be placed */
+static inline int ar_ssh_cve_2023_38408(const ArOpenSshVer *v) {
+    int ver = v->major * 100 + v->minor;
+    if (ver == 903 && v->portable < 0) return 0;
+    return (ver < 903 || (ver == 903 && v->portable < 2)) ? 1 : 2;
+}
+
+/* CVE-2023-25136: only 9.1 */
+static inline int ar_ssh_cve_2023_25136(const ArOpenSshVer *v) {
+    return (v->major == 9 && v->minor == 1) ? 1 : 2;
 }
 
 #endif

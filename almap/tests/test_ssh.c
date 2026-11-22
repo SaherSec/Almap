@@ -8,6 +8,7 @@
 #define _GNU_SOURCE
 #include "../plugins/arsenal_ssh.h"
 
+#include <signal.h>
 #include <sys/wait.h>
 
 static int failures;
@@ -48,6 +49,45 @@ int main(void) {
     parse_case("SSH-2.0-OpenSSH_9.xp1", 0, 0, 0, 0, 0);
     parse_case("HTTP/1.1 200 OK", 0, 0, 0, 0, 0);
     parse_case("", 0, 0, 0, 0, 0);
+
+    /* values the review found wrapping into a wrong version or patch level */
+    parse_case("SSH-2.0-OpenSSH_0.805", 0, 0, 0, 0, 0);
+    parse_case("SSH-2.0-OpenSSH_8.105", 0, 0, 0, 0, 0);
+    parse_case("SSH-2.0-OpenSSH_9.3p99999999999999999999", 0, 0, 0, 0, 0);
+    parse_case("SSH-2.0-OpenSSH_9.3p4294967298", 0, 0, 0, 0, 0);
+    parse_case("SSH-2.0-OpenSSH_9.8", 1, 9, 8, -1, 0);
+
+    /* every version boundary of the three decisions (1 in range, 2 outside, 0 undecided) */
+    {
+        static const struct { const char *b; int c6387, c38408, c25136; } t[] = {
+            { "SSH-2.0-OpenSSH_3.9p1",   0, 1, 2 },
+            { "SSH-2.0-OpenSSH_4.3p2",   0, 1, 2 },
+            { "SSH-2.0-OpenSSH_4.4p1",   2, 1, 2 },
+            { "SSH-2.0-OpenSSH_8.4p1",   2, 1, 2 },
+            { "SSH-2.0-OpenSSH_8.5p1",   1, 1, 2 },
+            { "SSH-2.0-OpenSSH_9.0p1",   1, 1, 2 },
+            { "SSH-2.0-OpenSSH_9.1p1",   1, 1, 1 },
+            { "SSH-2.0-OpenSSH_9.2p1",   1, 1, 2 },
+            { "SSH-2.0-OpenSSH_9.3p1",   1, 1, 2 },
+            { "SSH-2.0-OpenSSH_9.3",     1, 0, 2 },
+            { "SSH-2.0-OpenSSH_9.3p2",   1, 2, 2 },
+            { "SSH-2.0-OpenSSH_9.4p1",   1, 2, 2 },
+            { "SSH-2.0-OpenSSH_9.7p1",   1, 2, 2 },
+            { "SSH-2.0-OpenSSH_9.8p1",   2, 2, 2 },
+            { "SSH-2.0-OpenSSH_9.9p1",   2, 2, 2 },
+            { "SSH-2.0-OpenSSH_10.0p2",  2, 2, 2 },
+        };
+        size_t i;
+        for (i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
+            ArOpenSshVer v;
+            char what[120];
+            ar_ssh_parse_openssh(t[i].b, &v);
+            snprintf(what, sizeof(what), "verdicts for %s", t[i].b);
+            CHECK(v.ok && ar_ssh_cve_2024_6387(&v) == t[i].c6387 &&
+                  ar_ssh_cve_2023_38408(&v) == t[i].c38408 &&
+                  ar_ssh_cve_2023_25136(&v) == t[i].c25136, what);
+        }
+    }
 
     /* FIPS 180-4 / NIST vectors: empty, "abc", the 56-byte message (two padding
      * blocks), and 1,000,000 x 'a' */
@@ -131,6 +171,61 @@ int main(void) {
             if (fd >= 0) close(fd);
             waitpid(pid, &status, 0);
             CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0, "client identification line is exactly SSH-2.0-Almap");
+            close(srv);
+        }
+    }
+
+    /* a peer that drips its banner (no LF) or goes silent must not hold the
+     * plugin longer than the connection budget (2 x timeout) */
+    {
+        int mode;
+        for (mode = 0; mode < 2; mode++) {
+            int srv = socket(AF_INET, SOCK_STREAM, 0);
+            struct sockaddr_in a;
+            socklen_t al = sizeof(a);
+            pid_t pid;
+            AlScriptContext ctx;
+            char banner[256];
+            long long t0, took;
+            int fd;
+            memset(&a, 0, sizeof(a));
+            a.sin_family = AF_INET;
+            a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            if (bind(srv, (struct sockaddr *)&a, sizeof(a)) != 0 || listen(srv, 1) != 0 ||
+                getsockname(srv, (struct sockaddr *)&a, &al) != 0) {
+                printf("FAIL cannot listen\n");
+                return 1;
+            }
+            pid = fork();
+            if (pid == 0) {
+                int c = accept(srv, NULL, NULL);
+                int k;
+                if (mode == 0) {
+                    for (k = 0; k < 60; k++) { (void)!write(c, "x", 1); usleep(50000); }
+                } else {
+                    (void)!write(c, "SSH-2.0-OpenSSH_9.7\r\n", 21);
+                    sleep(4);
+                }
+                _exit(0);
+            }
+            memset(&ctx, 0, sizeof(ctx));
+            ctx.target_ip = INADDR_LOOPBACK;
+            ctx.port = ntohs(a.sin_port);
+            ctx.timeout_ms = 300;
+            t0 = ar_ssh_now_ms();
+            fd = ar_ssh_open(&ctx, banner, sizeof(banner));
+            if (mode == 1) {
+                unsigned char pk[64];
+                CHECK(fd >= 0, "banner then silence: open succeeds");
+                CHECK(ar_ssh_recv_packet(fd, pk, sizeof(pk), ctx.timeout_ms) < 0, "silent peer: no packet");
+            } else {
+                CHECK(fd < 0, "dripping peer refused");
+            }
+            took = ar_ssh_now_ms() - t0;
+            CHECK(took < 900, "total time stays inside the connection budget");
+            if (fd >= 0) close(fd);
+            kill(pid, SIGKILL);
+            waitpid(pid, NULL, 0);
             close(srv);
         }
     }

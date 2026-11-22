@@ -23,4 +23,5 @@ case $kind in
   algos)    want=$("$here/algos_oracle.sh" "$host" "$port") ;;
   hostkeys) want=$("$here/hostkeys_oracle.sh" "$host" "$port"); got=${got#ssh-hostkey: } ;;
 esac
+if [ -z "$want" ] || [ -z "$got" ]; then echo "DIFFER $kind $host:$port (empty output: plugin=${#got} bytes, oracle=${#want} bytes)"; exit 1; fi
 if [ "$got" = "$want" ]; then echo "AGREE $kind $host:$port"; else echo "DIFFER $kind $host:$port"; diff <(printf '%s\n' "$got") <(printf '%s\n' "$want") | cut -c1-300; exit 1; fi

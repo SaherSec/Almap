@@ -4,12 +4,12 @@
 
 ### Plugins: SSH family (batch 11.2)
 
-13 files became 6 checks, all proven in the podman lab against seven pinned OpenSSH releases (8.4p1 to 10.3p1, `tests/lab/ssh`). Notes: [docs/plans/batches/02-ssh.md](docs/plans/batches/02-ssh.md).
+13 files became 6 checks, run in the podman lab against seven pinned OpenSSH releases (8.4p1 to 10.3p1, `tests/lab/ssh`). For `ssh_version`, `ssh2-enum-algos` and `ssh-hostkey` the lab proves the output against the real servers. For the three CVE checks it proves only that the banner is read and compared with the documented range correctly: no server in the lab is shown to be exploitable, which is why they are `detect`. Notes: [docs/plans/batches/02-ssh.md](docs/plans/batches/02-ssh.md).
 
 - `ssh_version`, `ssh2-enum-algos` and `ssh-hostkey` (tier `info`) are rewritten on a new `arsenal_ssh.h`. The shipped helper never sent the client identification string, which OpenSSH waits for before its KEXINIT, so every KEXINIT-based check printed only the banner against a real server. `ssh-hostkey` now reads the real host keys from the cleartext key-exchange reply and prints type, size and SHA256 fingerprint; the lab compares them with `ssh-keyscan` and `ssh-keygen -l`, and the algorithm lists with what `ssh -vv` reports.
-- `ssh-cve-2024-6387`, `ssh-cve-2023-38408` and `ssh-cve-2023-25136` (tier `detect`) compare the banner version with the documented range. They print `DETECTED` / `NOT DETECTED`, say they are banner-only, and print `INFO` for vendor builds and for `9.3` without a patch level (the lab's Alpine builds announce `OpenSSH_9.3` for both 9.3p1 and 9.3p2).
+- `ssh-cve-2024-6387`, `ssh-cve-2023-38408` and `ssh-cve-2023-25136` (tier `detect`) compare the banner version with the documented range. They print `DETECTED` / `NOT DETECTED`, say they are banner-only (a bare `OpenSSH_9.7` is also what OpenBSD announces, and OpenBSD is not affected by CVE-2024-6387), and print `INFO` for vendor builds and for `9.3` without a patch level (the lab's Alpine builds announce `OpenSSH_9.3` for both 9.3p1 and 9.3p2).
 - `ssh-auth-methods` and `ssh-brute` are removed: they need an encrypted SSH transport that the plugin helpers do not have.
-- New unit test `tests/test_ssh.c` (banner parser, SHA-256 against the NIST vectors, identification exchange).
+- New unit test `tests/test_ssh.c`: banner parser (including values that once wrapped into a wrong version), every version boundary of the three decisions, SHA-256 against the NIST vectors, the identification exchange, and the time budget against a peer that drips or goes silent. `ssh-hostkey` names any key type it could not obtain.
 
 | Old name | New name | Why |
 |---|---|---|
