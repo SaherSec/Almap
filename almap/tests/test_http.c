@@ -3,7 +3,11 @@
 #define _DEFAULT_SOURCE
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -170,9 +174,334 @@ static void test_next(void) {
     close(lfd);
 }
 
-int main(void) {
+
+/* ---- scan lifecycle -------------------------------------------------
+ * almap_http_scan_start execs this very test binary with the scanner's
+ * argv ("-t <name> -p ..."); main() below turns that into a fake scanner
+ * whose behaviour is picked by <name>. */
+static int fake_scanner(const char *mode) {
+    const char *nb = getenv("FAKE_BYTES");
+    long n = nb ? atol(nb) : 0;
+    char blk[4096];
+
+    memset(blk, 'x', sizeof(blk));
+    if (strcmp(mode, "echo") == 0) {
+        printf("[1]");
+        return 0;
+    }
+    if (strcmp(mode, "bytes") == 0) {
+        while (n > 0) {
+            size_t k = n > (long)sizeof(blk) ? sizeof(blk) : (size_t)n;
+
+            if (write(1, blk, k) != (ssize_t)k) {
+                return 9;
+            }
+            n -= (long)k;
+        }
+        return 0;
+    }
+    if (strcmp(mode, "fail") == 0) {
+        printf("boom");
+        fflush(stdout);
+        fprintf(stderr, "-err");
+        return 3;
+    }
+    if (strcmp(mode, "late") == 0) { /* slow, then prints */
+        usleep(1200000);
+        printf("[late]");
+        return 0;
+    }
+    if (strcmp(mode, "sleep") == 0) {
+        sleep(60);
+        return 0;
+    }
+    if (strcmp(mode, "grand") == 0) { /* grandchild keeps the pipe open */
+        pid_t g = fork();
+
+        if (g == 0) {
+            const char *f = getenv("FAKE_PIDFILE");
+            FILE *fp = f ? fopen(f, "w") : NULL;
+
+            if (fp) {
+                fprintf(fp, "%d", (int)getpid());
+                fclose(fp);
+            }
+            sleep(60);
+            _exit(0);
+        }
+        sleep(60);
+        return 0;
+    }
+    if (strcmp(mode, "stdin") == 0) {
+        char c;
+        ssize_t r = read(0, &c, 1);
+
+        printf(r == 0 ? "eof" : "data");
+        return 0;
+    }
+    return 1;
+}
+
+static long long now_ms(void) {
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* A connected pair: *srv is the server side (passed to scan_start),
+ * *cli the requester's end. */
+static void mk_pair(int lfd, int port, int *srv, int *cli) {
+    *cli = dial(port);
+    *srv = accept(lfd, NULL, NULL);
+    /* The scan child must not keep the requester's socket alive. */
+    (void)fcntl(*cli, F_SETFD, FD_CLOEXEC);
+    (void)fcntl(*srv, F_SETFD, FD_CLOEXEC);
+}
+
+/* Run next() until the scan is done. Returns the kind seen (0 on
+ * timeout of this helper) and the handed-back requester. */
+static int wait_done(int lfd, int *client) {
+    unsigned char buf[ALMAP_WEB_REQ_CAP];
+    int kind = 0;
+    int n;
+
+    *client = -2;
+    n = almap_http_next(lfd, buf, (int)sizeof(buf), client, &kind);
+    (void)n;
+    return kind;
+}
+
+static int no_children(void) {
+    int st;
+
+    return waitpid(-1, &st, WNOHANG) == -1 && errno == ECHILD;
+}
+
+static int read_all(int fd, char *out, int cap) {
+    int total = 0;
+    ssize_t n;
+
+    while (total < cap - 1 && (n = read(fd, out + total, (size_t)(cap - 1 - total))) > 0) {
+        total += (int)n;
+    }
+    out[total] = '\0';
+    return total;
+}
+
+static int start(int srv, const char *mode) {
+    return almap_http_scan_start(srv, mode, "1", "connect", 0, 0, 0, 0, 0,
+                                 1000, 0, "");
+}
+
+static void test_scan(void) {
+    int port = 0;
+    int lfd = new_listener(&port);
+    int srv, cli, got, state, ec, rc;
+    unsigned char head[64];
+    static char resp[300000];
+    long long t0;
+
+    if (lfd < 0) {
+        expect("scan listener", 0);
+        return;
+    }
+    unsetenv("ALMAP_WEB_OUT_CAP");
+    unsetenv("ALMAP_WEB_SCAN_LIMIT_S");
+    setenv("ALMAP_WEB_REQ_DEADLINE_MS", "30000", 1);
+
+    /* OK: body "[1]" sent whole, requester handed back, stdin is EOF. */
+    mk_pair(lfd, port, &srv, &cli);
+    expect("scan start ok", start(srv, "echo") == 0);
+    expect("scan_running while active", almap_http_scan_running() == 1);
+    expect("second start -> -1", start(srv, "echo") == -1);
+    expect("scan_next -> SCAN_DONE", wait_done(lfd, &got) == ALMAP_EV_SCAN_DONE && got == srv);
+    expect("scan_running after", almap_http_scan_running() == 0);
+    rc = almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("state OK / exit 0", rc == 0 && state == ALMAP_SCAN_OK && ec == 0);
+    expect("send_body ok", almap_http_scan_send_body(got) == 0);
+    close(got);
+    read_all(cli, resp, sizeof(resp));
+    close(cli);
+    expect("200 + whole body", strncmp(resp, "HTTP/1.1 200", 12) == 0 &&
+           strstr(resp, "Content-Length: 3\r\n") && strstr(resp, "\r\n\r\n[1]"));
+    expect("result consumed once", almap_http_scan_result(head, sizeof(head), &ec, &state) == -1);
+    expect("no children left", no_children());
+
+    /* Child stdin is /dev/null. */
+    mk_pair(lfd, port, &srv, &cli);
+    start(srv, "stdin");
+    wait_done(lfd, &got);
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    almap_http_scan_send_body(got);
+    close(got);
+    read_all(cli, resp, sizeof(resp));
+    close(cli);
+    expect("child stdin at EOF", strstr(resp, "\r\n\r\neof") != NULL);
+
+    /* Empty output -> "[]". */
+    mk_pair(lfd, port, &srv, &cli);
+    setenv("FAKE_BYTES", "0", 1);
+    start(srv, "bytes");
+    wait_done(lfd, &got);
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    almap_http_scan_send_body(got);
+    close(got);
+    read_all(cli, resp, sizeof(resp));
+    close(cli);
+    expect("empty output -> []", strstr(resp, "\r\n\r\n[]") != NULL);
+
+    /* Large output (> pipe buffer) drained after the child exits. */
+    mk_pair(lfd, port, &srv, &cli);
+    setenv("FAKE_BYTES", "200000", 1);
+    start(srv, "bytes");
+    wait_done(lfd, &got);
+    rc = almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("200000 bytes OK", state == ALMAP_SCAN_OK);
+    almap_http_scan_send_body(got);
+    close(got);
+    got = read_all(cli, resp, sizeof(resp));
+    close(cli);
+    expect("full 200000-byte body", strstr(resp, "Content-Length: 200000\r\n") &&
+           got > 200000);
+
+    /* Cap boundary. */
+    setenv("ALMAP_WEB_OUT_CAP", "5000", 1);
+    setenv("FAKE_BYTES", "5000", 1);
+    mk_pair(lfd, port, &srv, &cli);
+    start(srv, "bytes");
+    wait_done(lfd, &got);
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("output == cap is OK", state == ALMAP_SCAN_OK);
+    almap_http_scan_send_body(got);
+    close(got);
+    got = read_all(cli, resp, sizeof(resp));
+    close(cli);
+    expect("at-cap body whole", strstr(resp, "Content-Length: 5000\r\n") != NULL);
+    setenv("FAKE_BYTES", "5001", 1);
+    mk_pair(lfd, port, &srv, &cli);
+    start(srv, "bytes");
+    wait_done(lfd, &got);
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("cap+1 is OVER_CAP", state == ALMAP_SCAN_OVER_CAP && got == srv);
+    expect("over-cap: send_body refused", almap_http_scan_send_body(got) == -1);
+    close(got);
+    close(cli);
+    expect("over-cap: no children", no_children());
+    expect("out_cap reports env", almap_http_out_cap() == 5000);
+    setenv("ALMAP_WEB_OUT_CAP", "0", 1); /* invalid -> default */
+    expect("invalid cap env ignored", almap_http_out_cap() == ALMAP_WEB_OUT_CAP);
+    unsetenv("ALMAP_WEB_OUT_CAP");
+
+    /* Failure: exit code and head of the output (stdout+stderr). */
+    mk_pair(lfd, port, &srv, &cli);
+    start(srv, "fail");
+    wait_done(lfd, &got);
+    rc = almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("FAILED, exit 3, head boom-err", state == ALMAP_SCAN_FAILED && ec == 3 &&
+           rc == 8 && memcmp(head, "boom-err", 8) == 0);
+    close(got);
+    close(cli);
+
+    /* Wall-clock limit: group kill, reaped, grandchild gone. */
+    {
+        char pidf[] = "/tmp/test_http_gc_XXXXXX";
+        int pfd = mkstemp(pidf);
+        FILE *f;
+        int gpid = 0;
+        char path[64];
+
+        close(pfd);
+        setenv("FAKE_PIDFILE", pidf, 1);
+        setenv("ALMAP_WEB_SCAN_LIMIT_S", "1", 1);
+        mk_pair(lfd, port, &srv, &cli);
+        t0 = now_ms();
+        start(srv, "grand");
+        wait_done(lfd, &got);
+        t0 = now_ms() - t0;
+        almap_http_scan_result(head, sizeof(head), &ec, &state);
+        expect("TIMED_OUT after ~1 s", state == ALMAP_SCAN_TIMED_OUT &&
+               t0 >= 900 && t0 < 2500 && got == srv);
+        expect("limit reports env", almap_http_scan_limit_s() == 1);
+        close(got);
+        close(cli);
+        expect("timeout: no children", no_children());
+        f = fopen(pidf, "r");
+        if (f) {
+            if (fscanf(f, "%d", &gpid) != 1) {
+                gpid = 0;
+            }
+            fclose(f);
+        }
+        unlink(pidf);
+        usleep(100000);
+        {
+            int alive = 0;
+            FILE *sf;
+
+            snprintf(path, sizeof(path), "/proc/%d/stat", gpid);
+            sf = gpid > 0 ? fopen(path, "r") : NULL;
+            if (sf) {
+                char line[256];
+                char *rp;
+
+                if (fgets(line, sizeof(line), sf) &&
+                    (rp = strrchr(line, ')')) != NULL && rp[2] != 'Z') {
+                    alive = 1;
+                }
+                fclose(sf);
+            }
+            expect("grandchild killed with the group", gpid > 0 && !alive);
+        }
+        unsetenv("FAKE_PIDFILE");
+    }
+    expect("invalid client fd -> -2", start(-1, "echo") == -2);
+    mk_pair(lfd, port, &srv, &cli);
+    expect("restart after timeout", start(srv, "echo") == 0);
+    wait_done(lfd, &got);
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    close(got);
+    close(cli);
+
+    /* Requester hang-up: killed within a second, nothing handed back. */
+    unsetenv("ALMAP_WEB_SCAN_LIMIT_S");
+    mk_pair(lfd, port, &srv, &cli);
+    start(srv, "sleep");
+    close(cli);
+    t0 = now_ms();
+    expect("hang-up -> SCAN_DONE", wait_done(lfd, &got) == ALMAP_EV_SCAN_DONE);
+    t0 = now_ms() - t0;
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("ABANDONED, client -1, < 1 s", state == ALMAP_SCAN_ABANDONED &&
+           got == -1 && t0 < 1000);
+    expect("abandoned: no children", no_children());
+    expect("abandoned: server fd closed by C", fcntl(srv, F_GETFD) == -1);
+
+    /* Extra bytes from the requester are not a hang-up. */
+    mk_pair(lfd, port, &srv, &cli);
+    start(srv, "late");
+    (void)!write(cli, "JUNKJUNK", 8);
+    expect("junk bytes: still SCAN_DONE OK", wait_done(lfd, &got) == ALMAP_EV_SCAN_DONE &&
+           got == srv);
+    almap_http_scan_result(head, sizeof(head), &ec, &state);
+    expect("junk bytes: state OK", state == ALMAP_SCAN_OK);
+    almap_http_scan_send_body(got);
+    close(got);
+    read_all(cli, resp, sizeof(resp));
+    close(cli);
+    expect("junk bytes: body delivered", strstr(resp, "[late]") != NULL);
+    expect("start argument error -> -2", almap_http_scan_start(0, "", "1", "", 0, 0, 0, 0, 0, 0, 0, "") == -2);
+    close(lfd);
+}
+
+int main(int argc, char **argv) {
+    if (argc > 2 && strcmp(argv[1], "-t") == 0) {
+        return fake_scanner(argv[2]);
+    }
+    setvbuf(stdout, NULL, _IOLBF, 0);
     setenv("ALMAP_WEB_REQ_DEADLINE_MS", "300", 1);
     test_next();
+    test_scan();
     check_cl("absent", H(""), 0, 0);
     check_cl("12", H("Content-Length: 12\r\n"), 1, 12);
     check_cl("zero", H("Content-Length: 0\r\n"), 1, 0);

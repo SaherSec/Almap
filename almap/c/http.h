@@ -35,7 +35,8 @@ extern "C" {
  *                         the request is oversize / has a malformed
  *                         Content-Length; *client_fd is handed out the
  *                         same way (caller answers 413 / 400); returns 0.
- *     ALMAP_EV_SCAN_DONE  reserved for the scan worker; returns 0.
+ *     ALMAP_EV_SCAN_DONE  the scan child finished (see almap_http_scan_*);
+ *                         *client_fd is the requester or -1; returns 0.
  *   A client that has not completed its request within
  *   ALMAP_WEB_REQ_DEADLINE_MS of being accepted (total, not per read),
  *   or that closes first, is closed silently: a request with fewer
@@ -53,31 +54,59 @@ extern "C" {
  * almap_http_close(fd):
  *   Closes fd. Returns 0 on success, -1 on failure.
  *
+ * almap_http_close_linger(fd):
+ *   Like close, but first shuts down the sending side and discards
+ *   incoming bytes for up to 100 ms, so an early error reply (413/400)
+ *   to a client still sending its body is not lost to a reset.
+ *
  * almap_http_self_exe(buf, cap):
  *   Copies the current executable path (readlink /proc/self/exe) into
  *   buf NUL-terminated. Returns the path byte count (> 0) or -1 when
  *   unavailable. buf must hold cap bytes, cap >= 2.
  *
- * almap_http_run_scan(targets, ports, scan_type, fast, os_flag,
- *                     service_flag, evasion_flag, discover_flag,
- *                     timeout_ms, retries, script, out, cap, exit_code):
- *   Spawns the ALmap binary (self exe) as a child with --json and
- *   captures combined stdout+stderr into out NUL-terminated. Returns
- *   the output byte count (>= 0) or -1 on fork/exec/pipe failure.
- *   When exit_code is non-NULL it stores the child exit status
- *   (WEXITSTATUS when WIFEXITED, else -1). out must hold cap bytes,
- *   cap >= 2. Arguments are NUL-terminated C strings:
- *     targets    comma list (required, unless empty with discover)
+ * Scan child (one at a time; the child is this binary with --json, its
+ * stdin /dev/null, stdout+stderr combined into one pipe, in its own
+ * process group):
+ *
+ * almap_http_scan_start(client_fd, targets, ports, scan_type, fast,
+ *                       os_flag, service_flag, evasion_flag,
+ *                       discover_flag, timeout_ms, retries, script):
+ *   Spawns the scan. Returns 0 started (C now OWNS client_fd until
+ *   almap_http_next hands it back with ALMAP_EV_SCAN_DONE; the caller
+ *   must not close it), -1 a scan is already running (caller keeps
+ *   client_fd and answers 409), -2 on spawn/argument error (caller
+ *   keeps client_fd, answers 500). Arguments are NUL-terminated:
+ *     targets    comma list (required)
  *     ports      ports string (required unless discover_flag)
  *     scan_type  "connect" | "syn" | "udp" (empty means "connect";
  *                ignored when discover_flag is set)
  *     fast, os_flag, service_flag, evasion_flag, discover_flag
- *                nonzero means add the corresponding flag
- *                (--fast, --os, --service, -f, --discover)
- *     timeout_ms  when > 0, passes --timeout <ms>
- *     retries    when >= 0, passes --retries <n> (fast engine timeout
- *                retries, CLI range 0..10)
+ *                nonzero adds --fast, --os, --service, -f, --discover
+ *     timeout_ms when > 0, passes --timeout <ms>
+ *     retries    when >= 0, passes --retries <n>
  *     script     AlScript .so path; empty/NULL means no --script
+ *   While the scan runs, almap_http_next keeps serving other requests,
+ *   collects the output (up to ALMAP_WEB_OUT_CAP bytes) and watches
+ *   the requester. The child's whole process group is SIGKILLed and the
+ *   child reaped at ALMAP_WEB_SCAN_LIMIT_S seconds, when the output
+ *   exceeds the cap by one byte, or when the requester hangs up.
+ *   When the scan ends, almap_http_next returns ALMAP_EV_SCAN_DONE with
+ *   *client_fd the requester (-1 if it hung up; C closed it).
+ *
+ * almap_http_scan_result(head, head_cap, exit_code, state):
+ *   Reports the finished scan: *state is an ALMAP_SCAN_* value,
+ *   *exit_code the child status (WEXITSTATUS, else -1). For
+ *   ALMAP_SCAN_FAILED up to head_cap bytes of its output are copied to
+ *   head and their count returned (else 0). Returns -1 when there is no
+ *   finished scan. Non-OK results release the output buffer.
+ *
+ * almap_http_scan_send_body(client_fd):
+ *   For ALMAP_SCAN_OK: sends 200 + the whole output (or "[]" when it is
+ *   empty) and releases the buffer. Returns 0 / -1.
+ *
+ * almap_http_scan_running(): 1 while a scan child is running, else 0.
+ * almap_http_out_cap() / almap_http_scan_limit_s(): the effective
+ *   output cap in bytes and wall-clock limit in seconds.
  *
  * All functions are thread-unsafe only in that the server is
  * single-threaded by design (sequential request handling).
@@ -106,6 +135,18 @@ extern "C" {
 #define ALMAP_EV_BAD_LENGTH 3
 #define ALMAP_EV_SCAN_DONE 4
 
+/* Scan limits. Each may be overridden by an environment variable of the
+ * same name (bytes 1..64 MiB / seconds 1..3600; ignored when invalid). */
+#define ALMAP_WEB_OUT_CAP (16 * 1024 * 1024)
+#define ALMAP_WEB_SCAN_LIMIT_S 300
+
+/* almap_http_scan_result states. */
+#define ALMAP_SCAN_OK 0
+#define ALMAP_SCAN_FAILED 1
+#define ALMAP_SCAN_OVER_CAP 2
+#define ALMAP_SCAN_TIMED_OUT 3
+#define ALMAP_SCAN_ABANDONED 4
+
 /*
  * almap_http_parse_content_length(hdr, hdr_len, out): pure parser for
  * the Content-Length header in a request head. Returns 0 if absent,
@@ -125,15 +166,21 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
                     int *client_fd, int *kind);
 int almap_http_send(int client_fd, const unsigned char *buf, int len);
 int almap_http_close(int fd);
+int almap_http_close_linger(int fd);
 int almap_http_self_exe(unsigned char *buf, int cap);
 int almap_http_random_token(unsigned char *buf, int cap);
 int almap_http_resolve_plugin(const char *name, unsigned char *out, int cap);
-int almap_http_run_scan(const char *targets, const char *ports,
-                        const char *scan_type, int fast, int os_flag,
-                        int service_flag, int evasion_flag,
-                        int discover_flag, int timeout_ms, int retries,
-                        const char *script,
-                        unsigned char *out, int cap, int *exit_code);
+int almap_http_scan_start(int client_fd, const char *targets,
+                          const char *ports, const char *scan_type,
+                          int fast, int os_flag, int service_flag,
+                          int evasion_flag, int discover_flag,
+                          int timeout_ms, int retries, const char *script);
+int almap_http_scan_result(unsigned char *head, int head_cap, int *exit_code,
+                           int *state);
+int almap_http_scan_send_body(int client_fd);
+int almap_http_scan_running(void);
+int almap_http_out_cap(void);
+int almap_http_scan_limit_s(void);
 
 #ifdef __cplusplus
 }

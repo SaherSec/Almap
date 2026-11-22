@@ -56,10 +56,16 @@ extern fn almap_http_accept(listen_fd: i32) -> i32;
 extern fn almap_http_next(listen_fd: i32, buf: u8&, cap: i32, client_fd: i32&, kind: i32&) -> i32;
 extern fn almap_http_send(client_fd: i32, buf: const u8&, len: i32) -> i32;
 extern fn almap_http_close(fd: i32) -> i32;
+extern fn almap_http_close_linger(fd: i32) -> i32;
 extern fn almap_http_self_exe(buf: u8&, cap: i32) -> i32;
 extern fn almap_http_random_token(buf: u8&, cap: i32) -> i32;
 extern fn almap_http_resolve_plugin(name: const u8&, out: u8&, cap: i32) -> i32;
-extern fn almap_http_run_scan(targets: const u8&, ports: const u8&, scan_type: const u8&, fast: i32, os_flag: i32, service_flag: i32, evasion_flag: i32, discover_flag: i32, timeout_ms: i32, retries: i32, script: const u8&, out: u8&, cap: i32, exit_code: i32&) -> i32;
+extern fn almap_http_scan_start(client_fd: i32, targets: const u8&, ports: const u8&, scan_type: const u8&, fast: i32, os_flag: i32, service_flag: i32, evasion_flag: i32, discover_flag: i32, timeout_ms: i32, retries: i32, script: const u8&) -> i32;
+extern fn almap_http_scan_result(head: u8&, head_cap: i32, exit_code: i32&, state: i32&) -> i32;
+extern fn almap_http_scan_send_body(client_fd: i32) -> i32;
+extern fn almap_http_scan_running() -> i32;
+extern fn almap_http_out_cap() -> i32;
+extern fn almap_http_scan_limit_s() -> i32;
 
 fn version_string() -> const u8[:] {
     return "5.0.0";
@@ -386,15 +392,23 @@ fn status_text(code: i64) -> const u8[:] {
     if code == 401 { return "Unauthorized"; }
     if code == 403 { return "Forbidden"; }
     if code == 404 { return "Not Found"; }
+    if code == 409 { return "Conflict"; }
     if code == 413 { return "Payload Too Large"; }
     if code == 415 { return "Unsupported Media Type"; }
+    if code == 504 { return "Gateway Timeout"; }
     return "Internal Server Error";
 }
 
 fn status_json(out: u8[>..]&) {
     out.append("{\"status\":\"ok\",\"version\":\"");
     output::json_escape(out, version_string());
-    out.append("\",\"service\":\"almap-web\"}");
+    out.append("\",\"service\":\"almap-web\",\"scan_running\":");
+    if almap_http_scan_running() != 0 {
+        out.append("true");
+    } else {
+        out.append("false");
+    }
+    out.append("}");
 }
 
 fn error_json(out: u8[>..]&, message: const u8[:]) {
@@ -502,7 +516,10 @@ fn index_html(out: u8[>..]&) {
         """);
 }
 
-fn handle_scan(client: i32, body: const u8[:]) {
+// Returns true when the C layer took ownership of `client` (a scan was
+// started; the reply comes later via ALMAP_EV_SCAN_DONE), else false
+// (the reply was sent; the caller closes the client).
+fn handle_scan(client: i32, body: const u8[:]) -> bool {
     var targets: u8[>..] = [];
     var ports: u8[>..] = [];
     var scan_type: u8[>..] = [];
@@ -540,31 +557,31 @@ fn handle_scan(client: i32, body: const u8[:]) {
         var err: u8[>..] = [];
         error_json(err, "targets is required");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if !discover && (!has_ports || ports.len == 0) {
         var err: u8[>..] = [];
         error_json(err, "ports is required");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if !is_valid_scan_type(scan_type) {
         var err: u8[>..] = [];
         error_json(err, "invalid scan_type (expected connect, syn, udp, or discovery)");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if timeout_ms < 1 || timeout_ms > 60000 {
         var err: u8[>..] = [];
         error_json(err, "invalid timeout (expected 1..60000)");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if retries < 0 || retries > 10 {
         var err: u8[>..] = [];
         error_json(err, "invalid retries (expected 0..10)");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     let is_syn = scan_type == "syn";
     let is_udp = scan_type == "udp";
@@ -572,31 +589,31 @@ fn handle_scan(client: i32, body: const u8[:]) {
         var err: u8[>..] = [];
         error_json(err, "--fast requires connect scan");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if is_fast && (is_service || is_evasion || is_os) {
         var err: u8[>..] = [];
         error_json(err, "--fast cannot be combined with service, evasion, or os");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if is_os && !is_syn {
         var err: u8[>..] = [];
         error_json(err, "os requires syn scan");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if is_service && (discover || is_syn || is_udp) {
         var err: u8[>..] = [];
         error_json(err, "service requires connect scan");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if is_evasion && (discover || is_udp) {
         var err: u8[>..] = [];
         error_json(err, "evasion requires syn or connect scan");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     var use_script = false;
     if has_script && script_path.len > 0 {
@@ -605,25 +622,25 @@ fn handle_scan(client: i32, body: const u8[:]) {
             var err: u8[>..] = [];
             error_json(err, "script requires connect or syn scan");
             send_response(client, 400, "application/json", err);
-            return;
+            return false;
         }
         if is_fast {
             var err: u8[>..] = [];
             error_json(err, "script cannot be combined with fast");
             send_response(client, 400, "application/json", err);
-            return;
+            return false;
         }
         if is_service || is_os || is_evasion {
             var err: u8[>..] = [];
             error_json(err, "script cannot be combined with service, os, or evasion");
             send_response(client, 400, "application/json", err);
-            return;
+            return false;
         }
         if !valid_plugin_name(script_path) {
             var err: u8[>..] = [];
             error_json(err, "script must be a plugin name from the plugins/ directory (e.g. http_title), not a path");
             send_response(client, 400, "application/json", err);
-            return;
+            return false;
         }
     }
     let tl, tstatus = target::parse_mixed_target_list(targets);
@@ -631,13 +648,13 @@ fn handle_scan(client: i32, body: const u8[:]) {
         var err: u8[>..] = [];
         error_json(err, "invalid targets");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if !target::targets_allowed_mixed(tl) {
         var err: u8[>..] = [];
         error_json(err, "CIDR prefix too large; use /24 (IPv4) or /112 (IPv6) or smaller");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if !discover {
         let _prs, pok = target::parse_ports(ports);
@@ -645,7 +662,7 @@ fn handle_scan(client: i32, body: const u8[:]) {
             var err: u8[>..] = [];
             error_json(err, "invalid ports");
             send_response(client, 400, "application/json", err);
-            return;
+            return false;
         }
     }
     var targets_c: u8[1024] = [0; 1024];
@@ -656,25 +673,25 @@ fn handle_scan(client: i32, body: const u8[:]) {
         var err: u8[>..] = [];
         error_json(err, "targets too long");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if !discover && !copy_cstr(ports_c[..], ports) {
         var err: u8[>..] = [];
         error_json(err, "ports too long");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if !copy_cstr(scan_c[..], scan_type) {
         var err: u8[>..] = [];
         error_json(err, "scan_type too long");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     if use_script && !copy_cstr(script_c[..], script_path) {
         var err: u8[>..] = [];
         error_json(err, "script name too long");
         send_response(client, 400, "application/json", err);
-        return;
+        return false;
     }
     // Only a regular file directly inside <binary dir>/plugins/ is ever
     // handed to the scanner (and so to dlopen).
@@ -687,39 +704,64 @@ fn handle_scan(client: i32, body: const u8[:]) {
             output::json_escape(err, script_path);
             err.append("' (no such .so in the plugins/ directory)\"}");
             send_response(client, 400, "application/json", err);
-            return;
+            return false;
         }
     }
-    var out_buf: u8[32768] = [0; 32768];
-    var exit_buf: i32[1] = [0];
     let fast_i: i32 = if is_fast { 1 } else { 0 };
     let os_i: i32 = if is_os { 1 } else { 0 };
     let service_i: i32 = if is_service { 1 } else { 0 };
     let evasion_i: i32 = if is_evasion { 1 } else { 0 };
     let discover_i: i32 = if discover { 1 } else { 0 };
-    let rc = almap_http_run_scan(targets_c[0], ports_c[0], scan_c[0], fast_i, os_i, service_i, evasion_i, discover_i, timeout_ms as i32, retries as i32, plugin_path[0], out_buf[0], out_buf.len as i32, exit_buf[0]);
+    let rc = almap_http_scan_start(client, targets_c[0], ports_c[0], scan_c[0], fast_i, os_i, service_i, evasion_i, discover_i, timeout_ms as i32, retries as i32, plugin_path[0]);
+    if rc == 0 - 1 {
+        var err: u8[>..] = [];
+        error_json(err, "a scan is already running");
+        send_response(client, 409, "application/json", err);
+        return false;
+    }
     if rc < 0 {
         var err: u8[>..] = [];
         error_json(err, "failed to start scan");
         send_response(client, 500, "application/json", err);
+        return false;
+    }
+    return true;
+}
+
+// A scan ended (ALMAP_EV_SCAN_DONE): answer the requester, if any. The
+// caller closes `client` afterwards when it is >= 0.
+fn finish_scan(client: i32) {
+    var head: u8[4096] = [0; 4096];
+    var exit_buf: i32[1] = [0];
+    var state_buf: i32[1] = [0];
+    let hn = almap_http_scan_result(head[0], head.len as i32, exit_buf[0], state_buf[0]);
+    if hn < 0 || client < 0 {
         return;
     }
-    let out_slice = out_buf[..rc as i64];
-    if exit_buf[0] == 0 {
-        if out_slice.len == 0 {
-            send_response(client, 200, "application/json", "[]");
-        } else {
-            send_response(client, 200, "application/json", out_slice);
-        }
+    let state = state_buf[0];
+    if state == 0 {
+        let _ = almap_http_scan_send_body(client);
         return;
     }
-    var err2: u8[>..] = [];
-    err2.append("{\"error\":\"");
-    output::json_escape(err2, out_slice);
-    err2.append("\",\"exit_code\":");
-    format(err2, exit_buf[0]);
-    err2.append("}");
-    send_response(client, 500, "application/json", err2);
+    var err: u8[>..] = [];
+    if state == 1 {
+        err.append("{\"error\":\"");
+        output::json_escape(err, head[..hn as i64]);
+        err.append("\",\"exit_code\":");
+        format(err, exit_buf[0]);
+        err.append("}");
+        send_response(client, 500, "application/json", err);
+    } else if state == 2 {
+        err.append("{\"error\":\"scan output exceeded ");
+        format(err, almap_http_out_cap());
+        err.append(" bytes\",\"truncated\":true}");
+        send_response(client, 500, "application/json", err);
+    } else if state == 3 {
+        err.append("{\"error\":\"scan exceeded ");
+        format(err, almap_http_scan_limit_s());
+        err.append(" s wall-clock limit\"}");
+        send_response(client, 504, "application/json", err);
+    }
 }
 
 fn default_bind() -> const u8[:] {
@@ -774,7 +816,12 @@ fn serve(port: i64, bind_addr: const u8[:]) -> bool {
                 error_json(err, "bad request");
             }
             send_response(client, st, "application/json", err);
-            almap_http_close(client);
+            almap_http_close_linger(client);
+            continue;
+        }
+        if kind == 4 {
+            finish_scan(client);
+            if client >= 0 { almap_http_close(client); }
             continue;
         }
         if kind != 1 || client < 0 || n <= 0 {
@@ -816,7 +863,9 @@ fn serve(port: i64, bind_addr: const u8[:]) -> bool {
                 almap_http_close(client);
                 continue;
             }
-            handle_scan(client, extract_body(req));
+            if handle_scan(client, extract_body(req)) {
+                continue; // the scan owns the client until it finishes
+            }
         } else if is_index_request(method, path) {
             var body: u8[>..] = [];
             index_html(body);

@@ -1,4 +1,5 @@
 #ifndef _WIN32
+#define _GNU_SOURCE /* POLLRDHUP */
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700 /* realpath */
 #endif
@@ -390,6 +391,443 @@ static int slot_state(struct pending *p, int limit, int *req_len) {
     return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Scan child: one at a time, driven by the almap_http_next poll loop. */
+
+static struct {
+    int active;      /* child running (not yet finished) */
+    int have_result; /* finished, result not yet consumed */
+    int state;       /* ALMAP_SCAN_* once finished */
+    int exit_code;
+    pid_t pid;
+    int reaped;
+    int pipe_fd;     /* read end, -1 once closed */
+    int client;      /* requester; -1 when handed back or hung up */
+    unsigned char *buf;
+    size_t len;
+    size_t cap;      /* output limit in bytes */
+    long limit_s;
+    long long deadline_ms;
+} g_scan = {0, 0, 0, 0, 0, 0, -1, -1, NULL, 0, 0, 0, 0};
+
+int almap_http_out_cap(void) {
+    return (int)env_limit("ALMAP_WEB_OUT_CAP", ALMAP_WEB_OUT_CAP, 1,
+                          64L * 1024 * 1024);
+}
+
+int almap_http_scan_limit_s(void) {
+    return (int)env_limit("ALMAP_WEB_SCAN_LIMIT_S", ALMAP_WEB_SCAN_LIMIT_S,
+                          1, 3600);
+}
+
+int almap_http_scan_running(void) {
+    return g_scan.active;
+}
+
+static void scan_free_buf(void) {
+    free(g_scan.buf);
+    g_scan.buf = NULL;
+    g_scan.len = 0;
+}
+
+/* A descriptor >= 3 (so dup2 onto 0..2 in the child cannot clash),
+ * close-on-exec. Consumes fd. Returns -1 on failure (fd closed). */
+static int fd_high(int fd) {
+    int n = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+
+    close(fd);
+    return n;
+}
+
+static void scan_reap(void) {
+    int status = 0;
+
+    if (g_scan.reaped) {
+        return;
+    }
+    for (;;) {
+        pid_t w = waitpid(g_scan.pid, &status, 0);
+
+        if (w == g_scan.pid) {
+            break;
+        }
+        if (w < 0 && errno != EINTR) {
+            status = -1;
+            g_scan.exit_code = -1;
+            g_scan.reaped = 1;
+            return;
+        }
+    }
+    g_scan.exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    g_scan.reaped = 1;
+}
+
+/* Kill the child's whole process group, then reap it. Only called
+ * while the child is still unreaped, so its pid cannot be reused. */
+static void scan_kill_reap(void) {
+    if (!g_scan.reaped) {
+        (void)kill(-g_scan.pid, SIGKILL);
+        (void)kill(g_scan.pid, SIGKILL);
+        scan_reap();
+    }
+}
+
+/* Drop request bytes the requester sent while it waited: closing a
+ * socket with unread input would reset it and could lose our reply. */
+static void scan_drain_client(void) {
+    unsigned char junk[512];
+
+    while (g_scan.client >= 0 &&
+           recv(g_scan.client, junk, sizeof(junk), MSG_DONTWAIT) > 0) {
+    }
+}
+
+static void scan_finish(int state) {
+    g_scan.state = state;
+    g_scan.active = 0;
+    g_scan.have_result = 1;
+    if (g_scan.pipe_fd >= 0) {
+        close(g_scan.pipe_fd);
+        g_scan.pipe_fd = -1;
+    }
+    if (state == ALMAP_SCAN_OVER_CAP || state == ALMAP_SCAN_TIMED_OUT ||
+        state == ALMAP_SCAN_ABANDONED) {
+        scan_free_buf();
+    }
+    if (state == ALMAP_SCAN_ABANDONED && g_scan.client >= 0) {
+        close(g_scan.client);
+        g_scan.client = -1;
+    } else {
+        scan_drain_client();
+    }
+}
+
+/* Read what the pipe holds now. Returns 1 when the cap was exceeded
+ * (one byte over), else 0. Sets *eof at end of file. */
+static int scan_read(int *eof) {
+    for (;;) {
+        size_t room = g_scan.cap + 1 - g_scan.len; /* up to cap+1 bytes */
+        size_t want = room < 65536 ? room : 65536;
+        ssize_t n;
+
+        {
+            size_t need = g_scan.len + want + 1;
+            size_t bound = g_scan.cap + 2;
+            unsigned char *nb;
+            size_t ncap = g_scan.len < 4096 ? 8192 : g_scan.len * 2;
+
+            if (ncap < need) {
+                ncap = need;
+            }
+            if (ncap > bound) {
+                ncap = bound;
+            }
+            nb = (unsigned char *)realloc(g_scan.buf, ncap);
+            if (nb == NULL) {
+                *eof = 1;
+                return 1; /* out of memory: treat as over the cap */
+            }
+            g_scan.buf = nb;
+        }
+        n = read(g_scan.pipe_fd, g_scan.buf + g_scan.len, want);
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                *eof = 1;
+            }
+            return 0;
+        }
+        if (n == 0) {
+            *eof = 1;
+            return 0;
+        }
+        g_scan.len += (size_t)n;
+        if (g_scan.len > g_scan.cap) {
+            return 1;
+        }
+    }
+}
+
+/* True when the requester has hung up. Extra request bytes are read
+ * and dropped; only an orderly close or a reset counts. */
+static int scan_client_gone(void) {
+    unsigned char junk[512];
+
+    for (;;) {
+        ssize_t n = recv(g_scan.client, junk, sizeof(junk), MSG_DONTWAIT);
+
+        if (n > 0) {
+            continue;
+        }
+        if (n == 0) {
+            return 1;
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return 1;
+    }
+}
+
+/* Advance the running scan. Returns 1 when it finished. */
+static int scan_pump(short pipe_rev, short cli_rev, long long now) {
+    int eof = 0;
+    siginfo_t si;
+
+    if (g_scan.pipe_fd >= 0 && pipe_rev != 0) {
+        if (scan_read(&eof)) {
+            scan_kill_reap();
+            scan_finish(ALMAP_SCAN_OVER_CAP);
+            return 1;
+        }
+        if (eof) {
+            close(g_scan.pipe_fd);
+            g_scan.pipe_fd = -1;
+        }
+    }
+    /* Has the child exited? (WNOWAIT keeps the pid reserved.) */
+    memset(&si, 0, sizeof(si));
+    if (waitid(P_PID, (id_t)g_scan.pid, &si, WEXITED | WNOHANG | WNOWAIT) == 0 &&
+        si.si_pid == g_scan.pid) {
+        /* Take down any grandchild, then collect the last bytes. */
+        scan_kill_reap();
+        if (g_scan.pipe_fd >= 0) {
+            int over;
+
+            eof = 0;
+            over = scan_read(&eof);
+            if (over) {
+                scan_finish(ALMAP_SCAN_OVER_CAP);
+                return 1;
+            }
+        }
+        scan_finish(g_scan.exit_code == 0 ? ALMAP_SCAN_OK
+                                          : ALMAP_SCAN_FAILED);
+        return 1;
+    }
+    if (g_scan.client >= 0 && cli_rev != 0 && scan_client_gone()) {
+        scan_kill_reap();
+        scan_finish(ALMAP_SCAN_ABANDONED);
+        return 1;
+    }
+    if (now >= g_scan.deadline_ms) {
+        scan_kill_reap();
+        scan_finish(ALMAP_SCAN_TIMED_OUT);
+        return 1;
+    }
+    return 0;
+}
+
+int almap_http_scan_start(int client_fd, const char *targets,
+                          const char *ports, const char *scan_type,
+                          int fast, int os_flag, int service_flag,
+                          int evasion_flag, int discover_flag,
+                          int timeout_ms, int retries, const char *script) {
+    char exe_path[512];
+    char timeout_buf[16];
+    char retries_buf[16];
+    const char *argv[26];
+    int argc = 0;
+    int pipefd[2];
+    int fl;
+    pid_t pid;
+
+    if (g_scan.active) {
+        return -1;
+    }
+    if (client_fd < 0 || targets == NULL || targets[0] == '\0') {
+        return -2;
+    }
+    if (!discover_flag && (ports == NULL || ports[0] == '\0')) {
+        return -2;
+    }
+    if (almap_http_self_exe((unsigned char *)exe_path,
+                            (int)sizeof(exe_path)) < 0) {
+        return -2;
+    }
+    timeout_buf[0] = '\0';
+    if (timeout_ms > 0) {
+        snprintf(timeout_buf, sizeof(timeout_buf), "%d", timeout_ms);
+    }
+    retries_buf[0] = '\0';
+    if (retries >= 0) {
+        snprintf(retries_buf, sizeof(retries_buf), "%d", retries);
+    }
+
+    argv[argc++] = exe_path;
+    argv[argc++] = "-t";
+    argv[argc++] = targets;
+    if (discover_flag) {
+        argv[argc++] = "--discover";
+    } else {
+        argv[argc++] = "-p";
+        argv[argc++] = ports;
+        argv[argc++] = "--scan";
+        if (scan_type != NULL && scan_type[0] != '\0') {
+            argv[argc++] = scan_type;
+        } else {
+            argv[argc++] = "connect";
+        }
+        if (timeout_ms > 0) {
+            argv[argc++] = "--timeout";
+            argv[argc++] = timeout_buf;
+        }
+        if (retries >= 0) {
+            argv[argc++] = "--retries";
+            argv[argc++] = retries_buf;
+        }
+        if (fast) {
+            argv[argc++] = "--fast";
+        }
+        if (os_flag) {
+            argv[argc++] = "--os";
+        }
+        if (service_flag) {
+            argv[argc++] = "--service";
+        }
+        if (evasion_flag) {
+            argv[argc++] = "-f";
+        }
+        if (script != NULL && script[0] != '\0') {
+            argv[argc++] = "--script";
+            argv[argc++] = script;
+        }
+    }
+    argv[argc++] = "--json";
+    argv[argc] = NULL;
+
+    if (pipe(pipefd) != 0) {
+        return -2;
+    }
+    pipefd[0] = fd_high(pipefd[0]);
+    if (pipefd[0] < 0) {
+        close(pipefd[1]);
+        return -2;
+    }
+    pipefd[1] = fd_high(pipefd[1]);
+    if (pipefd[1] < 0) {
+        close(pipefd[0]);
+        return -2;
+    }
+    fl = fcntl(pipefd[0], F_GETFL);
+    if (fl < 0 || fcntl(pipefd[0], F_SETFL, fl | O_NONBLOCK) != 0) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return -2;
+    }
+    pid = fork();
+    if (pid < 0) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return -2;
+    }
+    if (pid == 0) {
+        int nul;
+
+        (void)setpgid(0, 0);
+        signal(SIGPIPE, SIG_DFL);
+        nul = open("/dev/null", O_RDONLY);
+        if (nul < 0 || dup2(nul, STDIN_FILENO) < 0) {
+            _exit(127);
+        }
+        if (nul > STDERR_FILENO) {
+            close(nul);
+        }
+        if (dup2(pipefd[1], STDOUT_FILENO) < 0 ||
+            dup2(pipefd[1], STDERR_FILENO) < 0) {
+            _exit(127);
+        }
+        /* Everything else (listener, clients, pipe ends) is
+         * close-on-exec and goes away at execv. */
+        execv(exe_path, (char *const *)argv);
+        _exit(127);
+    }
+    (void)setpgid(pid, pid); /* also from the parent: no race */
+    close(pipefd[1]);
+
+    scan_free_buf(); /* an unsent previous result is dropped */
+    g_scan.have_result = 0;
+    g_scan.cap = (size_t)almap_http_out_cap();
+    g_scan.limit_s = almap_http_scan_limit_s();
+    g_scan.deadline_ms = mono_ms() + g_scan.limit_s * 1000;
+    g_scan.pid = pid;
+    g_scan.reaped = 0;
+    g_scan.exit_code = -1;
+    g_scan.pipe_fd = pipefd[0];
+    g_scan.client = client_fd;
+    g_scan.state = 0;
+    g_scan.active = 1;
+    return 0;
+}
+
+int almap_http_scan_result(unsigned char *head, int head_cap, int *exit_code,
+                           int *state) {
+    int n = 0;
+
+    if (exit_code != NULL) {
+        *exit_code = -1;
+    }
+    if (state != NULL) {
+        *state = ALMAP_SCAN_ABANDONED;
+    }
+    if (!g_scan.have_result) {
+        return -1;
+    }
+    if (exit_code != NULL) {
+        *exit_code = g_scan.exit_code;
+    }
+    if (state != NULL) {
+        *state = g_scan.state;
+    }
+    if (g_scan.state == ALMAP_SCAN_FAILED && head != NULL && head_cap > 0 &&
+        g_scan.buf != NULL) {
+        size_t m = g_scan.len < (size_t)head_cap ? g_scan.len
+                                                 : (size_t)head_cap;
+
+        memcpy(head, g_scan.buf, m);
+        n = (int)m;
+    }
+    if (g_scan.state != ALMAP_SCAN_OK) {
+        scan_free_buf();
+        g_scan.have_result = 0;
+    }
+    return n;
+}
+
+int almap_http_scan_send_body(int client_fd) {
+    char hdr[160];
+    int hn;
+    int rc = 0;
+    static const unsigned char empty[2] = {'[', ']'};
+    const unsigned char *body = g_scan.buf;
+    size_t blen = g_scan.len;
+
+    if (!g_scan.have_result || g_scan.state != ALMAP_SCAN_OK) {
+        return -1;
+    }
+    if (blen == 0 || body == NULL) {
+        body = empty;
+        blen = 2;
+    }
+    hn = snprintf(hdr, sizeof(hdr),
+                  "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                  "Content-Length: %zu\r\nConnection: close\r\n\r\n", blen);
+    if (hn < 0 || (size_t)hn >= sizeof(hdr) ||
+        almap_http_send(client_fd, (const unsigned char *)hdr, hn) != 0 ||
+        blen > (size_t)INT_MAX ||
+        almap_http_send(client_fd, body, (int)blen) != 0) {
+        rc = -1;
+    }
+    scan_free_buf();
+    g_scan.have_result = 0;
+    return rc;
+}
+
 int almap_http_next(int listen_fd, unsigned char *buf, int cap,
                     int *client_fd, int *kind) {
     int limit;
@@ -420,14 +858,16 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
         int timeout = -1;
         long long now = mono_ms();
         int rc;
+        int pipe_i = -1;
+        int cli_i = -1;
 
         for (i = 0; i < g_nslots; i++) {
             if (g_slots[i].fd >= 0 && g_slots[i].deadline_ms <= now) {
                 slot_drop(&g_slots[i]); /* deadline: no reply, no event */
             }
         }
-        pfd = (struct pollfd *)malloc((size_t)(g_nslots + 1) * sizeof(*pfd));
-        idx = (int *)malloc((size_t)(g_nslots + 1) * sizeof(*idx));
+        pfd = (struct pollfd *)malloc((size_t)(g_nslots + 3) * sizeof(*pfd));
+        idx = (int *)malloc((size_t)(g_nslots + 3) * sizeof(*idx));
         if (pfd == NULL || idx == NULL) {
             free(pfd);
             free(idx);
@@ -459,6 +899,38 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
                 }
             }
         }
+        if (g_scan.active) {
+            long long left = g_scan.deadline_ms - now;
+            int tick = g_scan.pipe_fd < 0 ? 10 : 200;
+
+            if (left < 0) {
+                left = 0;
+            }
+            if (left > tick) {
+                left = tick;
+            }
+            if (timeout < 0 || left < timeout) {
+                timeout = (int)left;
+            }
+            if (g_scan.pipe_fd >= 0) {
+                pfd[nfd].fd = g_scan.pipe_fd;
+                pfd[nfd].events = POLLIN;
+                pfd[nfd].revents = 0;
+                idx[nfd] = -2;
+                pipe_i = nfd++;
+            }
+            if (g_scan.client >= 0) {
+                pfd[nfd].fd = g_scan.client;
+#ifdef POLLRDHUP
+                pfd[nfd].events = POLLRDHUP; /* hang-up only, not data */
+#else
+                pfd[nfd].events = POLLIN;
+#endif
+                pfd[nfd].revents = 0;
+                idx[nfd] = -3;
+                cli_i = nfd++;
+            }
+        }
         rc = poll(pfd, (nfds_t)nfd, timeout);
         if (rc < 0) {
             free(pfd);
@@ -471,8 +943,23 @@ int almap_http_next(int listen_fd, unsigned char *buf, int cap,
         if (rc > 0 && (pfd[0].revents & POLLIN)) {
             accept_ready(listen_fd);
         }
+        if (g_scan.active &&
+            scan_pump(pipe_i >= 0 ? pfd[pipe_i].revents : 0,
+                      cli_i >= 0 ? pfd[cli_i].revents : 0, mono_ms())) {
+            free(pfd);
+            free(idx);
+            *kind = ALMAP_EV_SCAN_DONE;
+            *client_fd = g_scan.client; /* handed back exactly once */
+            g_scan.client = -1;
+            return 0;
+        }
         for (i = 1; i < nfd && rc > 0; i++) {
-            struct pending *p = &g_slots[idx[i]];
+            struct pending *p;
+
+            if (idx[i] < 0) {
+                continue;
+            }
+            p = &g_slots[idx[i]];
             ssize_t n;
             int req_len = 0;
             int ev;
@@ -545,6 +1032,40 @@ int almap_http_send(int client_fd, const unsigned char *buf, int len) {
 int almap_http_close(int fd) {
     if (fd < 0) {
         return -1;
+    }
+    return close(fd);
+}
+
+/* Close after an early error reply: send FIN, then discard whatever
+ * request bytes are still arriving (up to 100 ms) so the close does not
+ * turn into an RST that wipes the reply from the client's buffer. */
+int almap_http_close_linger(int fd) {
+    long long end = mono_ms() + 100;
+    unsigned char junk[1024];
+
+    if (fd < 0) {
+        return -1;
+    }
+    (void)shutdown(fd, SHUT_WR);
+    for (;;) {
+        long long left = end - mono_ms();
+        struct pollfd p;
+        ssize_t n;
+
+        if (left <= 0) {
+            break;
+        }
+        p.fd = fd;
+        p.events = POLLIN;
+        p.revents = 0;
+        if (poll(&p, 1, (int)left) <= 0) {
+            break;
+        }
+        n = recv(fd, junk, sizeof(junk), MSG_DONTWAIT);
+        if (n == 0 || (n < 0 && errno != EINTR && errno != EAGAIN &&
+                       errno != EWOULDBLOCK)) {
+            break;
+        }
     }
     return close(fd);
 }
@@ -690,156 +1211,3 @@ int almap_http_resolve_plugin(const char *name, unsigned char *out, int cap) {
     return n;
 }
 
-int almap_http_run_scan(const char *targets, const char *ports,
-                        const char *scan_type, int fast, int os_flag,
-                        int service_flag, int evasion_flag,
-                        int discover_flag, int timeout_ms, int retries,
-                        const char *script,
-                        unsigned char *out, int cap, int *exit_code) {
-    char exe_path[512];
-    char timeout_buf[16];
-    char retries_buf[16];
-    const char *argv[26];
-    int argc = 0;
-    int pipefd[2];
-    pid_t pid;
-    int total = 0;
-    int status = 0;
-
-    if (exit_code != NULL) {
-        *exit_code = -1;
-    }
-    if (out == NULL || cap < 2) {
-        return -1;
-    }
-    out[0] = '\0';
-    if (targets == NULL || targets[0] == '\0') {
-        return -1;
-    }
-    if (!discover_flag && (ports == NULL || ports[0] == '\0')) {
-        return -1;
-    }
-    if (almap_http_self_exe((unsigned char *)exe_path,
-                            (int)sizeof(exe_path)) < 0) {
-        return -1;
-    }
-
-    timeout_buf[0] = '\0';
-    if (timeout_ms > 0) {
-        snprintf(timeout_buf, sizeof(timeout_buf), "%d", timeout_ms);
-    }
-    retries_buf[0] = '\0';
-    if (retries >= 0) {
-        snprintf(retries_buf, sizeof(retries_buf), "%d", retries);
-    }
-
-    argv[argc++] = exe_path;
-    argv[argc++] = "-t";
-    argv[argc++] = targets;
-    if (discover_flag) {
-        argv[argc++] = "--discover";
-    } else {
-        argv[argc++] = "-p";
-        argv[argc++] = ports;
-        argv[argc++] = "--scan";
-        if (scan_type != NULL && scan_type[0] != '\0') {
-            argv[argc++] = scan_type;
-        } else {
-            argv[argc++] = "connect";
-        }
-        if (timeout_ms > 0) {
-            argv[argc++] = "--timeout";
-            argv[argc++] = timeout_buf;
-        }
-        if (retries >= 0) {
-            argv[argc++] = "--retries";
-            argv[argc++] = retries_buf;
-        }
-        if (fast) {
-            argv[argc++] = "--fast";
-        }
-        if (os_flag) {
-            argv[argc++] = "--os";
-        }
-        if (service_flag) {
-            argv[argc++] = "--service";
-        }
-        if (evasion_flag) {
-            argv[argc++] = "-f";
-        }
-        if (script != NULL && script[0] != '\0') {
-            argv[argc++] = "--script";
-            argv[argc++] = script;
-        }
-    }
-    argv[argc++] = "--json";
-    argv[argc] = NULL;
-
-    if (pipe(pipefd) != 0) {
-        return -1;
-    }
-    pid = fork();
-    if (pid < 0) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return -1;
-    }
-    if (pid == 0) {
-        /* Child: stdout+stderr -> pipe. */
-        close(pipefd[0]);
-        if (dup2(pipefd[1], STDOUT_FILENO) < 0) {
-            _exit(127);
-        }
-        if (dup2(pipefd[1], STDERR_FILENO) < 0) {
-            _exit(127);
-        }
-        close(pipefd[1]);
-        execv(exe_path, (char *const *)argv);
-        _exit(127);
-    }
-    /* Parent: capture until EOF, truncating at cap-1. */
-    close(pipefd[1]);
-    while (total < cap - 1) {
-        ssize_t n = read(pipefd[0], out + total, (size_t)(cap - 1 - total));
-
-        if (n < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            break;
-        }
-        if (n == 0) {
-            break;
-        }
-        total += (int)n;
-    }
-    {
-        unsigned char drain[4096];
-        ssize_t n;
-
-        do {
-            n = read(pipefd[0], drain, sizeof(drain));
-        } while (n > 0);
-    }
-    close(pipefd[0]);
-
-    for (;;) {
-        pid_t w = waitpid(pid, &status, 0);
-
-        if (w == pid) {
-            break;
-        }
-        if (w < 0 && errno != EINTR) {
-            break;
-        }
-    }
-    if (exit_code != NULL) {
-        if (WIFEXITED(status)) {
-            *exit_code = WEXITSTATUS(status);
-        } else {
-            *exit_code = -1;
-        }
-    }
-    out[total] = '\0';
-    return total;
-}

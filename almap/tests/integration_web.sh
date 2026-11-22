@@ -41,11 +41,20 @@ fi
 WEB_PID=""
 LISTENER_PID=""
 WEB2_PID=""
+HANG_PID=""
+EXTRA_PIDS=()
 TMPD=$(mktemp -d)
 LINK=plugins/zz-integration-web-escape.so
 cleanup() {
     rm -f "$LINK"
     rm -rf "$TMPD"
+    for p in "${EXTRA_PIDS[@]:-}"; do
+        [ -n "$p" ] && { kill "$p" 2>/dev/null || true; wait "$p" 2>/dev/null || true; }
+    done
+    if [ -n "$HANG_PID" ]; then
+        kill "$HANG_PID" 2>/dev/null || true
+        wait "$HANG_PID" 2>/dev/null || true
+    fi
     if [ -n "$WEB2_PID" ]; then
         kill "$WEB2_PID" 2>/dev/null || true
         wait "$WEB2_PID" 2>/dev/null || true
@@ -297,6 +306,194 @@ grep -q "^warning:" /tmp/integration_web2.log || fail "--web-bind 0.0.0.0 printe
 ./almap --web-bind 127.0.0.1 >/dev/null 2>&1
 [ $? -eq 2 ] || fail "--web-bind without --web did not exit 2"
 echo "--web-bind OK" >&2
+
+# ---------------------------------------------------------------------
+# Scan lifecycle: full output, caps, one at a time, kill semantics.
+# ---------------------------------------------------------------------
+HANG_PORT=18083
+CAP_PORT=18101
+LIM_PORT=18102
+PORTS2000="1-2000"
+
+# start_web PORT [VAR=value ...]: start a server, set LAST_PID/LAST_TOKEN.
+start_web() {
+    local port=$1 log i
+    shift
+    log="$TMPD/web$port.log"
+    env "$@" ./almap --web --web-port "$port" >"$log" 2>&1 &
+    LAST_PID=$!
+    EXTRA_PIDS+=("$LAST_PID")
+    for i in $(seq 1 50); do
+        grep -q '^API token' "$log" 2>/dev/null && break
+        sleep 0.1
+    done
+    LAST_TOKEN=$(sed -n 's/^API token: \([0-9a-f]\{32\}\).*/\1/p' "$log")
+    [ -n "$LAST_TOKEN" ] || fail "server on $port did not start: $(cat "$log")"
+}
+stop_web() { kill "$LAST_PID" 2>/dev/null; wait "$LAST_PID" 2>/dev/null; }
+# post PORT TOKEN OUTFILE BODY: print the HTTP status.
+post() {
+    curl -s -o "$3" -w "%{http_code}" -X POST "http://$HOST:$1/api/scan" \
+        -H "Authorization: Bearer $2" -H "Content-Type: application/json" -d "$4" 2>/dev/null
+}
+json_ok() { python3 -c 'import json,sys; json.load(sys.stdin)' <"$1" 2>/dev/null; }
+json_has() { python3 -c '
+import json,sys
+d = json.load(open(sys.argv[1]))
+sys.exit(0 if d.get(sys.argv[2]) == json.loads(sys.argv[3]) else 1)' "$1" "$2" "$3" 2>/dev/null; }
+kids() { pgrep -P "$1" 2>/dev/null | wc -l; }
+body_ports() { echo "{\"targets\":\"$HOST\",\"ports\":\"$1\",\"scan_type\":\"connect\",\"timeout\":1000}"; }
+HANG_BODY="{\"targets\":\"$HOST\",\"ports\":\"$HANG_PORT\",\"scan_type\":\"connect\",\"timeout\":5000,\"retries\":0}"
+
+# A listener whose accept queue is already full: connect() to it hangs
+# (SYN dropped) until the scan's --timeout. Deterministic, offline.
+python3 -c '
+import socket, sys, time
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", int(sys.argv[1])))
+s.listen(0)
+fill = []
+for _ in range(3):
+    c = socket.socket()
+    c.setblocking(False)
+    try:
+        c.connect(("127.0.0.1", int(sys.argv[1])))
+    except BlockingIOError:
+        pass
+    fill.append(c)
+time.sleep(120)
+' "$HANG_PORT" >/dev/null 2>&1 &
+HANG_PID=$!
+sleep 0.5
+python3 -c '
+import socket, sys
+s = socket.socket(); s.settimeout(1)
+try:
+    s.connect(("127.0.0.1", int(sys.argv[1]))); sys.exit(1)
+except socket.timeout:
+    sys.exit(0)' "$HANG_PORT" || fail "blackhole listener on $HANG_PORT does not hang connects"
+
+# 1. 2000 ports: far more than the old 32 KiB cap, still valid JSON.
+C=$(post "$WEB_PORT" "$TOKEN" "$TMPD/big.out" "$(body_ports "$PORTS2000")")
+[ "$C" = "200" ] || fail "2000-port scan: expected 200, got $C: $(head -c 200 "$TMPD/big.out")"
+json_ok "$TMPD/big.out" || fail "2000-port scan body is not valid JSON ($(wc -c <"$TMPD/big.out") bytes)"
+[ "$(wc -c <"$TMPD/big.out")" -gt 40000 ] || fail "2000-port scan body unexpectedly small"
+echo "2000-port scan: 200, valid JSON, $(wc -c <"$TMPD/big.out") bytes OK" >&2
+
+# 2. Over the output cap: 500 {"truncated":true}, never a partial body.
+start_web "$CAP_PORT" ALMAP_WEB_OUT_CAP=4096
+C=$(post "$CAP_PORT" "$LAST_TOKEN" "$TMPD/cap.out" "$(body_ports "$PORTS2000")")
+[ "$C" = "500" ] || fail "over-cap scan: expected 500, got $C"
+json_ok "$TMPD/cap.out" || fail "over-cap body is not valid JSON: $(head -c 200 "$TMPD/cap.out")"
+json_has "$TMPD/cap.out" truncated true || fail "over-cap body lacks truncated:true: $(cat "$TMPD/cap.out")"
+grep -q 'scan output exceeded 4096 bytes' "$TMPD/cap.out" || fail "over-cap message: $(cat "$TMPD/cap.out")"
+[ "$(kids "$LAST_PID")" = "0" ] || fail "child left after over-cap scan"
+echo "over-cap scan -> 500 truncated OK" >&2
+stop_web
+
+# 3. Exact boundary, calibrated from a real measured output length L:
+# cap == L is fine (200), cap == L-1 is over (500 truncated).
+BODY20=$(body_ports "1-20")
+L=$(./almap -t "$HOST" -p 1-20 --scan connect --timeout 1000 --retries 3 --json 2>&1 | wc -c)
+L2=$(./almap -t "$HOST" -p 1-20 --scan connect --timeout 1000 --retries 3 --json 2>&1 | wc -c)
+[ "$L" = "$L2" ] && [ "$L" -gt 100 ] && [ "$L" -le 4096 ] || fail "cannot calibrate output length ($L / $L2)"
+start_web "$CAP_PORT" "ALMAP_WEB_OUT_CAP=$L"
+C=$(post "$CAP_PORT" "$LAST_TOKEN" "$TMPD/at.out" "$BODY20")
+[ "$C" = "200" ] || fail "output == cap ($L): expected 200, got $C: $(head -c 200 "$TMPD/at.out")"
+json_ok "$TMPD/at.out" || fail "at-cap body is not valid JSON"
+[ "$(wc -c <"$TMPD/at.out")" = "$L" ] || fail "at-cap body is $(wc -c <"$TMPD/at.out") bytes, want $L"
+stop_web
+start_web "$CAP_PORT" "ALMAP_WEB_OUT_CAP=$((L - 1))"
+C=$(post "$CAP_PORT" "$LAST_TOKEN" "$TMPD/at.out" "$BODY20")
+[ "$C" = "500" ] || fail "output == cap+1: expected 500, got $C"
+json_has "$TMPD/at.out" truncated true || fail "cap+1 body lacks truncated:true: $(cat "$TMPD/at.out")"
+stop_web
+echo "cap boundary ($L bytes: ok at cap, over at cap-1) OK" >&2
+
+# 4. A slow scan does not block the server; a second scan gets 409.
+curl -s -o "$TMPD/slow.out" -w "%{http_code}" -X POST "$SCAN_URL" -H "$AUTH" -H "$JSON" -d "$HANG_BODY" >"$TMPD/slow.code" 2>/dev/null &
+SLOW_CURL=$!
+sleep 1
+[ "$(code -H "$AUTH" "http://$HOST:$WEB_PORT/api/status")" = "200" ] || fail "status during scan failed"
+grep -q '"scan_running":true' /tmp/web_sec.out || fail "status during scan lacks scan_running:true: $(cat /tmp/web_sec.out)"
+ELAPSED=$(status_ms) || fail "status during scan failed"
+[ "$ELAPSED" -lt 500 ] || fail "status took ${ELAPSED}ms during a scan (want < 500)"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body)")" = "409" ] || fail "second scan not 409"
+grep -q '{"error":"a scan is already running"}' /tmp/web_sec.out || fail "409 body: $(cat /tmp/web_sec.out)"
+# The child gets /dev/null as stdin and none of our sockets.
+CHILD=$(pgrep -P "$WEB_PID" | head -1)
+[ -n "$CHILD" ] || fail "no scan child found while scanning"
+[ "$(readlink "/proc/$CHILD/fd/0")" = "/dev/null" ] || fail "scan child stdin is not /dev/null"
+LINO=$(awk -v h="$(printf '%04X' "$WEB_PORT")" '$2 ~ ":"h"$" && $4 == "0A" {print $10}' /proc/net/tcp | head -1)
+[ -n "$LINO" ] || fail "cannot find the listener inode"
+if ls -l "/proc/$CHILD/fd" 2>/dev/null | grep -q "socket:\[$LINO\]"; then fail "scan child inherited the listening socket"; fi
+wait "$SLOW_CURL"
+[ "$(cat "$TMPD/slow.code")" = "200" ] || fail "slow scan: expected 200, got $(cat "$TMPD/slow.code")"
+json_ok "$TMPD/slow.out" || fail "slow scan body is not valid JSON"
+sleep 0.2
+[ "$(code -H "$AUTH" "http://$HOST:$WEB_PORT/api/status")" = "200" ] || fail "status after scan failed"
+grep -q '"scan_running":false' /tmp/web_sec.out || fail "status after scan lacks scan_running:false: $(cat /tmp/web_sec.out)"
+echo "slow scan: status served, second scan 409, child fds clean OK" >&2
+
+# 5. Wall-clock limit: 504 and no child left behind.
+start_web "$LIM_PORT" ALMAP_WEB_SCAN_LIMIT_S=1
+T0=$(now_ms)
+C=$(post "$LIM_PORT" "$LAST_TOKEN" "$TMPD/lim.out" "$HANG_BODY")
+T1=$(now_ms)
+[ "$C" = "504" ] || fail "wall-clock limit: expected 504, got $C: $(cat "$TMPD/lim.out")"
+json_ok "$TMPD/lim.out" || fail "504 body is not valid JSON"
+grep -q 'scan exceeded 1 s wall-clock limit' "$TMPD/lim.out" || fail "504 body: $(cat "$TMPD/lim.out")"
+[ $((T1 - T0)) -lt 3500 ] || fail "504 after $((T1 - T0)) ms (want ~1000)"
+[ "$(kids "$LAST_PID")" = "0" ] || fail "scan child remains after the wall-clock kill"
+C=$(post "$LIM_PORT" "$LAST_TOKEN" "$TMPD/lim2.out" "$(body_ports "$SCAN_PORT")")
+[ "$C" = "200" ] || fail "scan after a timeout: expected 200, got $C"
+echo "wall-clock limit -> 504, child reaped, next scan OK" >&2
+stop_web
+
+# 6. Requester disconnects: the child is gone within 1 s, next scan runs.
+raw_scan() { # PORT BODY TOKEN HOLD_SECONDS EXTRA_BYTES(0/1)
+python3 -c '
+import socket, sys, time
+b = sys.argv[2].encode()
+s = socket.create_connection(("127.0.0.1", int(sys.argv[1])))
+s.sendall(b"POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1:" + sys.argv[1].encode() + b"\r\nAuthorization: Bearer " + sys.argv[3].encode() +
+          b"\r\nContent-Type: application/json\r\nContent-Length: " + str(len(b)).encode() + b"\r\n\r\n" + b)
+hold = float(sys.argv[4])
+time.sleep(hold)
+if sys.argv[5] == "1":
+    s.sendall(b"GARBAGE" * 20)
+    s.settimeout(15)
+    data = b""
+    while True:
+        d = s.recv(65536)
+        if not d: break
+        data += d
+    print(data.split(b" ", 2)[1].decode())
+else:
+    s.close()
+' "$@"
+}
+raw_scan "$WEB_PORT" "$HANG_BODY" "$TOKEN" 1 0 &
+DISC=$!
+sleep 0.6
+[ "$(kids "$WEB_PID")" -ge 1 ] || fail "no scan child while the client is connected"
+wait "$DISC"
+GONE=0
+for i in $(seq 1 20); do
+    if [ "$(kids "$WEB_PID")" = "0" ]; then GONE=1; break; fi
+    sleep 0.05
+done
+[ "$GONE" = 1 ] || fail "scan child still running 1 s after the client disconnected"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body)")" = "200" ] || fail "scan after a disconnect not accepted: $(cat /tmp/web_sec.out)"
+echo "client disconnect kills the child; next scan OK" >&2
+
+# 6b. Extra bytes from the requester are not a hang-up.
+raw_scan "$WEB_PORT" "$HANG_BODY" "$TOKEN" 0.5 1 >"$TMPD/extra.code"
+[ "$(cat "$TMPD/extra.code")" = "200" ] || fail "extra request bytes aborted the scan (got '$(cat "$TMPD/extra.code")')"
+echo "extra request bytes do not kill the scan OK" >&2
+[ "$(kids "$WEB_PID")" = "0" ] || fail "child left after the suite"
+echo "scan lifecycle OK" >&2
 
 echo "ok: web ui / status / scan / errors / bind / token / host+origin / plugin names" >&2
 exit 0
