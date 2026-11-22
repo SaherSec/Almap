@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     rc = ar_pg_start(ctx, "postgres", "template1", &ssl);
     if (rc < 0) {
-        ar_out(ctx, "pgsql-default-db-check-4: PostgreSQL not reachable");
+        ar_out(ctx, "pgsql-default-db-check-4: INFO PostgreSQL not reachable");
         return 0;
     }
-    ar_out(ctx, "pgsql-default-db-check-4: startup ok (ssl=%s, user=postgres, db=template1)",
+    ar_out(ctx, "pgsql-default-db-check-4: INFO startup ok (ssl=%s, user=postgres, db=template1)",
            ssl ? "offered" : "disabled");
     return 0;
 }

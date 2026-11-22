@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Drupal: no matching paths");
+        ar_out(ctx, "http-drupal-enum-2: INFO Drupal: no matching paths");
     }
     return 0;
 }

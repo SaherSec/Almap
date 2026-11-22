@@ -11,10 +11,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "nfs-showmount-4: not reachable on port %d", ctx->port);
+        ar_out(ctx, "nfs-showmount-4: INFO not reachable on port %d", ctx->port);
         return 0;
     }
     close(fd);
-    ar_out(ctx, "nfs-showmount-4: service reachable on port %d (mountd surface)", ctx->port);
+    ar_out(ctx, "nfs-showmount-4: INFO service reachable on port %d (mountd surface)", ctx->port);
     return 0;
 }

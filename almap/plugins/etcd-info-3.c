@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "etcd: no matching paths");
+        ar_out(ctx, "etcd-info-3: INFO etcd: no matching paths");
     }
     return 0;
 }

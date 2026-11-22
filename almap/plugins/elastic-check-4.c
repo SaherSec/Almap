@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "elastic-check-4: no HTTP response on port %d", ctx->port);
+        ar_out(ctx, "elastic-check-4: INFO no HTTP response on port %d", ctx->port);
         return 0;
     }
-    ar_out(ctx, "elastic-check-4: GET / [%d]%s", ar_http_status(resp),
+    ar_out(ctx, "elastic-check-4: INFO GET / [%d]%s", ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (open; verify)" : "");
     return 0;
 }

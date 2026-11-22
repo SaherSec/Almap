@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         NULL, NULL, resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && code > 0) {
-        ar_out(ctx, "CVE-2021-44228 probe sent (HTTP %d); "
+        ar_out(ctx, "http-vuln-cve2021-44228-3: INFO CVE-2021-44228 probe sent (HTTP %d); "
                "JNDI callback required to confirm", code);
     } else {
-        ar_out(ctx, "CVE-2021-44228: no response");
+        ar_out(ctx, "http-vuln-cve2021-44228-3: INFO CVE-2021-44228: no response");
     }
     return 0;
 }

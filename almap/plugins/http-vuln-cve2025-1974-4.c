@@ -11,10 +11,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/", NULL, "Admission-Review-API: true\r\n", NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2025-1974-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2025-1974-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: / [%d] (CVE-2025-1974; verify out-of-band)",
+    ar_out(ctx, "http-vuln-cve2025-1974-4: INFO probe sent: / [%d] (CVE-2025-1974; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

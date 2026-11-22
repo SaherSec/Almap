@@ -15,12 +15,12 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_smb1_negotiate(ctx, resp, sizeof(resp));
     if (n < 0) {
-        ar_out(ctx, "MS08-067: SMB service not reachable");
+        ar_out(ctx, "smb-vuln-ms08-067: INFO MS08-067: SMB service not reachable");
         return 0;
     }
     dialect = ar_smb1_dialect(resp, n);
     if (dialect > 5) {
-        ar_out(ctx, "MS08-067: SMBv1 not offered (dialect 0x%04x)", dialect);
+        ar_out(ctx, "smb-vuln-ms08-067: INFO MS08-067: SMBv1 not offered (dialect 0x%04x)", dialect);
         return 0;
     }
     (void)ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
@@ -28,7 +28,7 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd >= 0) {
         close(fd);
     }
-    ar_out(ctx, "potentially vulnerable: MS08-067 (SMBv1 %s; patch level not confirmed)",
+    ar_out(ctx, "smb-vuln-ms08-067: INFO potentially matches probe for: MS08-067 (SMBv1 %s; patch level not confirmed)",
            ar_smb1_dialect_name(dialect));
     if (os[0] != '\0') {
         ar_append(ctx, " OS=%s", os);

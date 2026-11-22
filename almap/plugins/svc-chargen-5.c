@@ -13,16 +13,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "svc-chargen-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "svc-chargen-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "svc-chargen-5: no banner");
+        ar_out(ctx, "svc-chargen-5: INFO no banner");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "svc-chargen-5: %.200s", resp);
+    ar_out(ctx, "svc-chargen-5: INFO %.200s", resp);
     return 0;
 }

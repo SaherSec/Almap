@@ -13,20 +13,20 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "svc-rsync-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "svc-rsync-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "svc-rsync-5: no banner");
+        ar_out(ctx, "svc-rsync-5: INFO no banner");
         return 0;
     }
     ar_clean(resp);
     if (ar_contains_ci(resp, "@RSYNCD")) {
-        ar_out(ctx, "svc-rsync-5: detected: %.180s", resp);
+        ar_out(ctx, "svc-rsync-5: INFO probe matched: %.180s", resp);
     } else {
-        ar_out(ctx, "svc-rsync-5: banner %.180s", resp);
+        ar_out(ctx, "svc-rsync-5: INFO banner %.180s", resp);
     }
     return 0;
 }

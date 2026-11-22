@@ -12,13 +12,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "OPTIONS", "/", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "HTTP methods: no response");
+        ar_out(ctx, "http-methods-3: INFO HTTP methods: no response");
         return 0;
     }
     if (ar_http_header(resp, "Allow", allow, sizeof(allow))) {
-        ar_out(ctx, "HTTP methods: %s", allow);
+        ar_out(ctx, "http-methods-3: INFO HTTP methods: %s", allow);
     } else {
-        ar_out(ctx, "HTTP methods: Allow not disclosed (HTTP %d)",
+        ar_out(ctx, "http-methods-3: INFO HTTP methods: Allow not disclosed (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

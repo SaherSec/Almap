@@ -11,14 +11,14 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/crossdomain.xml", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-cross-domain-policy-3: no response");
+        ar_out(ctx, "http-cross-domain-policy-3: INFO no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "allow-access-from domain=\"*\"")) {
-        ar_out(ctx, "VULNERABLE: permissive cross-domain policy");
+        ar_out(ctx, "http-cross-domain-policy-3: INFO matches probe for: permissive cross-domain policy");
     } else {
-        ar_out(ctx, "not vulnerable: permissive cross-domain policy (HTTP %d)", ar_http_status(resp));
+        ar_out(ctx, "http-cross-domain-policy-3: INFO probe did not match: permissive cross-domain policy (HTTP %d)", ar_http_status(resp));
     }
     return 0;
 }

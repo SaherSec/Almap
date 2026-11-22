@@ -16,17 +16,17 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_smb2_negotiate(ctx, resp, sizeof(resp));
     if (n > 0) {
         dialect = ar_smb2_dialect(resp, n);
-        ar_out(ctx, "smb-vuln-cve2020-1472-4: SMB2 dialect=%s security=0x%x; verify CVE-2020-1472",
+        ar_out(ctx, "smb-vuln-cve2020-1472-4: INFO SMB2 dialect=%s security=0x%x; verify CVE-2020-1472",
                ar_smb2_dialect_name(dialect),
                ar_smb2_security_mode(resp, n));
         return 0;
     }
     n = ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os), lan, sizeof(lan));
     if (n == 0) {
-        ar_out(ctx, "smb-vuln-cve2020-1472-4: SMB1 os=%s lan=%s; verify CVE-2020-1472", os, lan);
+        ar_out(ctx, "smb-vuln-cve2020-1472-4: INFO SMB1 os=%s lan=%s; verify CVE-2020-1472", os, lan);
         close(fd);
     } else {
-        ar_out(ctx, "smb-vuln-cve2020-1472-4: no SMB response; verify CVE-2020-1472");
+        ar_out(ctx, "smb-vuln-cve2020-1472-4: INFO no SMB response; verify CVE-2020-1472");
     }
     return 0;
 }

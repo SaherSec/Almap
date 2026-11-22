@@ -19,7 +19,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Oracle SID brute: listener not reachable");
+        ar_out(ctx, "oracle-sid-brute-3: INFO Oracle SID brute: listener not reachable");
     } else {
         ar_append(ctx, " (listener reachable; SID validation requires TNS)");
     }

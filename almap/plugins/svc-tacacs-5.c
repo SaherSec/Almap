@@ -11,10 +11,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "svc-tacacs-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "svc-tacacs-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     close(fd);
-    ar_out(ctx, "svc-tacacs-5: service reachable on TCP %d", ctx->port);
+    ar_out(ctx, "svc-tacacs-5: INFO service reachable on TCP %d", ctx->port);
     return 0;
 }

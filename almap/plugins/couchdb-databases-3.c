@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "CouchDB databases: no matching paths");
+        ar_out(ctx, "couchdb-databases-3: INFO CouchDB databases: no matching paths");
     }
     return 0;
 }

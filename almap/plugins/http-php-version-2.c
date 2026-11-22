@@ -14,18 +14,18 @@ int almap_script_run(AlScriptContext *ctx) {
                     "/?=PHPB8B5F2A0-3C92-11d3-A3A9-4C7B08C10000",
                     resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "PHP version: no response");
+        ar_out(ctx, "http-php-version-2: INFO PHP version: no response");
         return 0;
     }
     if (ar_http_header(resp, "X-Powered-By", val, sizeof(val))) {
-        ar_out(ctx, "PHP version: %s", val);
+        ar_out(ctx, "http-php-version-2: INFO PHP version: %s", val);
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "PHP Version")) {
-        ar_out(ctx, "PHP version: phpinfo banner disclosed");
+        ar_out(ctx, "http-php-version-2: INFO PHP version: phpinfo banner disclosed");
     } else {
-        ar_out(ctx, "PHP version: not disclosed (HTTP %d)",
+        ar_out(ctx, "http-php-version-2: INFO PHP version: not disclosed (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

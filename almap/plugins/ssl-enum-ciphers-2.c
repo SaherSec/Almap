@@ -29,7 +29,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "TLS ciphers: no supported handshake");
+        ar_out(ctx, "ssl-enum-ciphers-2: INFO TLS ciphers: no supported handshake");
     }
     return 0;
 }

@@ -12,12 +12,12 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     rc = ar_tls_ccs_test(ctx, resp, sizeof(resp), &ver, &cipher);
     if (rc < 0) {
-        ar_out(ctx, "CCS injection: TLS handshake failed");
+        ar_out(ctx, "ssl-ccs-injection: INFO CCS injection: TLS handshake failed");
     } else if (rc == 1) {
-        ar_out(ctx, "VULNERABLE: CVE-2014-0224 early CCS accepted (%s/%s)",
+        ar_out(ctx, "ssl-ccs-injection: INFO matches probe for: CVE-2014-0224 early CCS accepted (%s/%s)",
                ar_tls_version_name(ver), ar_tls_cipher_name(cipher));
     } else {
-        ar_out(ctx, "not vulnerable: early CCS rejected (%s/%s)",
+        ar_out(ctx, "ssl-ccs-injection: INFO probe did not match: early CCS rejected (%s/%s)",
                ar_tls_version_name(ver), ar_tls_cipher_name(cipher));
     }
     return 0;

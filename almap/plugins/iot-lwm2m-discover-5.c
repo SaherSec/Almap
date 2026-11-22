@@ -17,14 +17,14 @@ int almap_script_run(AlScriptContext *ctx) {
     n = as_udp_exchange(ctx, req, sizeof(req), resp, sizeof(resp),
                         ctx->timeout_ms);
     if (n <= 0) {
-        ar_out(ctx, "iot-lwm2m-discover-5: no UDP reply");
+        ar_out(ctx, "iot-lwm2m-discover-5: INFO no UDP reply");
         return 0;
     }
     ar_clean(resp);
     if (ar_contains_ci(resp, "core")) {
-        ar_out(ctx, "iot-lwm2m-discover-5: detected");
+        ar_out(ctx, "iot-lwm2m-discover-5: INFO probe matched");
     } else {
-        ar_out(ctx, "iot-lwm2m-discover-5: not detected");
+        ar_out(ctx, "iot-lwm2m-discover-5: INFO probe did not match");
     }
     return 0;
 }

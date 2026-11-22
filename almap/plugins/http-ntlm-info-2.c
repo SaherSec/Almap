@@ -14,14 +14,14 @@ int almap_script_run(AlScriptContext *ctx) {
                         "TlRMTVNTUAABAAAAB4IIAAAAAAAAAAAAAAAAAAAAAAA=\r\n",
                         NULL, NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "NTLM info: no response");
+        ar_out(ctx, "http-ntlm-info-2: INFO NTLM info: no response");
         return 0;
     }
     if (ar_http_header(resp, "WWW-Authenticate", val, sizeof(val)) &&
         ar_contains_ci(val, "NTLM")) {
-        ar_out(ctx, "NTLM info: %s", val);
+        ar_out(ctx, "http-ntlm-info-2: INFO NTLM info: %s", val);
     } else {
-        ar_out(ctx, "NTLM info: not advertised (HTTP %d)",
+        ar_out(ctx, "http-ntlm-info-2: INFO NTLM info: not advertised (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

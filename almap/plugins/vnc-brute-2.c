@@ -19,12 +19,12 @@ int almap_script_run(AlScriptContext *ctx) {
                       "VNC valid password: " : ", ", passwords[i]);
             found++;
         } else if (rc == 2) {
-            ar_out(ctx, "VNC: no authentication required");
+            ar_out(ctx, "vnc-brute-2: INFO VNC: no authentication required");
             return 0;
         }
     }
     if (found == 0) {
-        ar_out(ctx, "VNC brute: no valid password in 5 attempts");
+        ar_out(ctx, "vnc-brute-2: INFO VNC brute: no valid password in 5 attempts");
     }
     return 0;
 }

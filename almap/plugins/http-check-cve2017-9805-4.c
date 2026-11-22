@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "POST", "/struts2-rest-showcase/orders/3", NULL, NULL, NULL,
                         "application/xml", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2017-9805-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2017-9805-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: POST /struts2-rest-showcase/orders/3 [%d] (CVE2017-9805; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2017-9805-4: INFO probe sent: POST /struts2-rest-showcase/orders/3 [%d] (CVE2017-9805; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

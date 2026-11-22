@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "MongoDB databases: no matching paths");
+        ar_out(ctx, "mongodb-databases-3: INFO MongoDB databases: no matching paths");
     }
     return 0;
 }

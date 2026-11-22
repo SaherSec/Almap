@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/tmui/login.jsp", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2020-5902-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2020-5902-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "F5")) {
-        ar_out(ctx, "VULNERABLE: /tmui/login.jsp [%d] (CVE-2020-5902)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2020-5902-4: INFO matches probe for: /tmui/login.jsp [%d] (CVE-2020-5902)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2020-5902 (/tmui/login.jsp [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2020-5902-4: INFO probe did not match: CVE-2020-5902 (/tmui/login.jsp [%d])", ar_http_status(resp));
     }
     return 0;
 }

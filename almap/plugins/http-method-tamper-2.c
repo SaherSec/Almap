@@ -14,9 +14,9 @@ int almap_script_run(AlScriptContext *ctx) {
                         resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 200 || code == 201 || code == 204)) {
-        ar_out(ctx, "VULNERABLE: HTTP PUT accepted (HTTP %d)", code);
+        ar_out(ctx, "http-method-tamper-2: INFO matches probe for: HTTP PUT accepted (HTTP %d)", code);
     } else {
-        ar_out(ctx, "not vulnerable: HTTP PUT rejected (HTTP %d)", code);
+        ar_out(ctx, "http-method-tamper-2: INFO probe did not match: HTTP PUT rejected (HTTP %d)", code);
     }
     return 0;
 }

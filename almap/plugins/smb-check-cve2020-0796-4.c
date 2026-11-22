@@ -14,11 +14,11 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_smb2_negotiate(ctx, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "SMB2 not answering (CVE-2020-0796 unlikely)");
+        ar_out(ctx, "smb-check-cve2020-0796-4: INFO SMB2 not answering (CVE-2020-0796 unlikely)");
         return 0;
     }
     d = ar_smb2_dialect(resp, n);
-    ar_out(ctx, "SMB2 dialect %s (CVE-2020-0796 affects 3.1.1; verify compression)",
+    ar_out(ctx, "smb-check-cve2020-0796-4: INFO SMB2 dialect %s (CVE-2020-0796 affects 3.1.1; verify compression)",
            ar_smb2_dialect_name(d));
     return 0;
 }

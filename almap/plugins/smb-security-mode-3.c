@@ -21,10 +21,10 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (mode < 0) {
-        ar_out(ctx, "SMB security mode: not detected");
+        ar_out(ctx, "smb-security-mode-3: INFO SMB security mode: probe did not match");
         return 0;
     }
-    ar_out(ctx, "SMB security mode: 0x%02x (%s)", mode,
+    ar_out(ctx, "smb-security-mode-3: INFO SMB security mode: 0x%02x (%s)", mode,
            (mode & 0x01) ? "user-level" : "share-level");
     ar_append(ctx, ", %s", (mode & 0x02) ? "encrypted passwords" :
               "plaintext passwords");

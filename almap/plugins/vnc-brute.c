@@ -25,9 +25,9 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (noauth) {
-        ar_out(ctx, "VNC: no authentication required (security type None)");
+        ar_out(ctx, "vnc-brute: INFO VNC: no authentication required (security type None)");
     } else if (found == 0) {
-        ar_out(ctx, "VNC brute: no valid password in 10-word dictionary");
+        ar_out(ctx, "vnc-brute: INFO VNC brute: no valid password in 10-word dictionary");
     }
     return 0;
 }

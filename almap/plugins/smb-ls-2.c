@@ -15,14 +15,14 @@ int almap_script_run(AlScriptContext *ctx) {
     as_ip_text(ctx->target_ip, ip, sizeof(ip));
     if (ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
                              lan, sizeof(lan)) != 0 || fd < 0) {
-        ar_out(ctx, "SMB ls: session failed");
+        ar_out(ctx, "smb-ls-2: INFO SMB ls: session failed");
         return 0;
     }
     if (ar_smb1_tree_connect(fd, uid, ip, "C$", "A:",
                              &tid, ctx->timeout_ms) == 0) {
-        ar_out(ctx, "SMB ls: C$ accessible via null session");
+        ar_out(ctx, "smb-ls-2: INFO SMB ls: C$ accessible via null session");
     } else {
-        ar_out(ctx, "SMB ls: C$ not accessible");
+        ar_out(ctx, "smb-ls-2: INFO SMB ls: C$ not accessible");
     }
     close(fd);
     return 0;

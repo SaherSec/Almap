@@ -26,7 +26,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "svn exposed: no");
+        ar_out(ctx, "http-svn-enum: INFO svn exposed: no");
     }
     return 0;
 }

@@ -13,19 +13,19 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ssh_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "SSH hostkey: no SSH banner");
+        ar_out(ctx, "ssh-hostkey-2: INFO SSH hostkey: no SSH banner");
         return 0;
     }
     n = ar_ssh_get_kexinit(fd, kex, sizeof(kex), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "SSH hostkey: KEXINIT failed (%s)", banner);
+        ar_out(ctx, "ssh-hostkey-2: INFO SSH hostkey: KEXINIT failed (%s)", banner);
         return 0;
     }
     if (ar_ssh_kex_field(kex, n, 1, val, sizeof(val)) == 0) {
-        ar_out(ctx, "SSH hostkey algorithms: %s", val);
+        ar_out(ctx, "ssh-hostkey-2: INFO SSH hostkey algorithms: %s", val);
     } else {
-        ar_out(ctx, "SSH hostkey: algorithms not disclosed (%s)", banner);
+        ar_out(ctx, "ssh-hostkey-2: INFO SSH hostkey: algorithms not disclosed (%s)", banner);
     }
     return 0;
 }

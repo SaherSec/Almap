@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
                                lan, sizeof(lan));
     if (fd >= 0) {
         close(fd);
-        ar_out(ctx, "SMB users: null session accepted; user list "
+        ar_out(ctx, "smb-enum-users-3: INFO SMB users: null session accepted; user list "
                "not exposed by this probe");
     } else {
-        ar_out(ctx, "SMB users: null session denied");
+        ar_out(ctx, "smb-enum-users-3: INFO SMB users: null session denied");
     }
     return 0;
 }

@@ -19,13 +19,13 @@ int almap_script_run(AlScriptContext *ctx) {
             (ar_contains_ci(body, "SQL syntax") ||
              ar_contains_ci(body, "mysql_fetch") ||
              ar_contains_ci(body, "ORA-"))) {
-            ar_append(ctx, "%s%s", (found == 0) ? "VULNERABLE: " : ", ",
+            ar_append(ctx, "%s%s", (found == 0) ? "matches probe for: " : ", ",
                       paths[i]);
             found++;
         }
     }
     if (found == 0) {
-        ar_out(ctx, "not vulnerable: no SQL error signature");
+        ar_out(ctx, "http-sql-injection-2: INFO probe did not match: no SQL error signature");
     }
     return 0;
 }

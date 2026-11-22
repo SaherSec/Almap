@@ -40,7 +40,7 @@ int almap_script_run(AlScriptContext *ctx) {
         ar_append(ctx, " version %s", ver);
     }
     if (found == 0) {
-        ar_out(ctx, "Drupal: not detected");
+        ar_out(ctx, "http-drupal-enum: INFO Drupal: probe did not match");
     }
     return 0;
 }

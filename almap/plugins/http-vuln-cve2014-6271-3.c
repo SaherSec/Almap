@@ -18,13 +18,13 @@ int almap_script_run(AlScriptContext *ctx) {
                                 "/bin/echo ALMAP_SHELLSHOCK\r\n",
                                 NULL, NULL, resp, sizeof(resp));
         if (n > 0 && ar_contains_ci(resp, "ALMAP_SHELLSHOCK")) {
-            ar_append(ctx, "%s%s", (found == 0) ? "VULNERABLE: " : ", ",
+            ar_append(ctx, "%s%s", (found == 0) ? "matches probe for: " : ", ",
                       paths[i]);
             found++;
         }
     }
     if (found == 0) {
-        ar_out(ctx, "not vulnerable: CVE-2014-6271 Shellshock");
+        ar_out(ctx, "http-vuln-cve2014-6271-3: INFO probe did not match: CVE-2014-6271 Shellshock");
     }
     return 0;
 }

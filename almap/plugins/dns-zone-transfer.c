@@ -74,6 +74,6 @@ int almap_script_run(AlScriptContext *ctx) {
             return 0;
         }
     }
-    ar_out(ctx, "DNS zone transfer: refused or no records");
+    ar_out(ctx, "dns-zone-transfer: INFO DNS zone transfer: refused or no records");
     return 0;
 }

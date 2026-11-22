@@ -12,7 +12,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ftp_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "vsftpd backdoor: no FTP banner");
+        ar_out(ctx, "ftp-vsftpd-backdoor: INFO vsftpd backdoor: no FTP banner");
         return 0;
     }
     code = ar_ftp_cmd(fd, "USER anonymous:)", reply, sizeof(reply),
@@ -24,9 +24,9 @@ int almap_script_run(AlScriptContext *ctx) {
     close(fd);
     if (ar_contains_ci(banner, "vsftpd 2.3.4") &&
         (code == 230 || code == 530)) {
-        ar_out(ctx, "VULNERABLE: vsftpd 2.3.4 smiley backdoor (%s)", banner);
+        ar_out(ctx, "ftp-vsftpd-backdoor: INFO matches probe for: vsftpd 2.3.4 smiley backdoor (%s)", banner);
     } else {
-        ar_out(ctx, "not vulnerable: vsftpd backdoor not confirmed (code %d)",
+        ar_out(ctx, "ftp-vsftpd-backdoor: INFO probe did not match: vsftpd backdoor not confirmed (code %d)",
                code);
     }
     return 0;

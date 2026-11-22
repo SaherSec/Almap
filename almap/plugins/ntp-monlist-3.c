@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = as_udp_exchange(ctx, probe, sizeof(probe), resp, sizeof(resp),
                         ctx->timeout_ms);
     if (n <= 0) {
-        ar_out(ctx, "NTP monlist: no response");
+        ar_out(ctx, "ntp-monlist-3: INFO NTP monlist: no response");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "NTP monlist: %d bytes: %.160s", n, resp);
+    ar_out(ctx, "ntp-monlist-3: INFO NTP monlist: %d bytes: %.160s", n, resp);
     return 0;
 }

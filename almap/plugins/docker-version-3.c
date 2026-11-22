@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Docker version: no matching paths");
+        ar_out(ctx, "docker-version-3: INFO Docker version: no matching paths");
     }
     return 0;
 }

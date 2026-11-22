@@ -12,9 +12,9 @@ int almap_script_run(AlScriptContext *ctx) {
                         resp, sizeof(resp));
     if (n > 0 && ar_http_status(resp) == 200 &&
         ar_contains_ci(resp, "TRACE")) {
-        ar_out(ctx, "VULNERABLE: HTTP TRACE method enabled");
+        ar_out(ctx, "http-trace-2: INFO matches probe for: HTTP TRACE method enabled");
     } else {
-        ar_out(ctx, "not vulnerable: HTTP TRACE (HTTP %d)",
+        ar_out(ctx, "http-trace-2: INFO probe did not match: HTTP TRACE (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

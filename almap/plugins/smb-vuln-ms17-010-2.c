@@ -23,7 +23,7 @@ int almap_script_run(AlScriptContext *ctx) {
         d1 = ar_smb1_dialect(resp, n);
     }
     if (d1 > 5) {
-        ar_out(ctx, "MS17-010: SMBv1 not offered (SMB2 dialect 0x%04x)", d2);
+        ar_out(ctx, "smb-vuln-ms17-010-2: INFO MS17-010: SMBv1 not offered (SMB2 dialect 0x%04x)", d2);
         return 0;
     }
     (void)ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
@@ -31,7 +31,7 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd >= 0) {
         close(fd);
     }
-    ar_out(ctx, "potentially vulnerable: MS17-010 EternalBlue "
+    ar_out(ctx, "smb-vuln-ms17-010-2: INFO potentially matches probe for: MS17-010 EternalBlue "
            "(SMBv1 %s; patch level not confirmed)",
            ar_smb1_dialect_name(d1));
     if (os[0] != '\0') {

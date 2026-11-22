@@ -21,13 +21,13 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ssh_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "SSH brute: no SSH banner");
+        ar_out(ctx, "ssh-brute-2: INFO SSH brute: no SSH banner");
         return 0;
     }
     n = ar_ssh_get_kexinit(fd, kex, sizeof(kex), ctx->timeout_ms);
     if (n <= 0) {
         close(fd);
-        ar_out(ctx, "SSH brute: KEXINIT failed");
+        ar_out(ctx, "ssh-brute-2: INFO SSH brute: KEXINIT failed");
         return 0;
     }
     for (i = 0; i < 5; i++) {
@@ -44,7 +44,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     close(fd);
     if (found == 0) {
-        ar_out(ctx, "SSH brute: no valid credentials in 5 attempts");
+        ar_out(ctx, "ssh-brute-2: INFO SSH brute: no valid credentials in 5 attempts");
     }
     return 0;
 }

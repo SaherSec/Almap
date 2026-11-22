@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = as_udp_exchange(ctx, probe, sizeof(probe), resp, sizeof(resp),
                         ctx->timeout_ms);
     if (n <= 0) {
-        ar_out(ctx, "SIP users: no response");
+        ar_out(ctx, "sip-enum-users-3: INFO SIP users: no response");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "SIP users: %d bytes: %.160s", n, resp);
+    ar_out(ctx, "sip-enum-users-3: INFO SIP users: %d bytes: %.160s", n, resp);
     return 0;
 }

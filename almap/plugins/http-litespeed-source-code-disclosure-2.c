@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "LiteSpeed backups: no matching paths");
+        ar_out(ctx, "http-litespeed-source-code-disclosure-2: INFO LiteSpeed backups: no matching paths");
     }
     return 0;
 }

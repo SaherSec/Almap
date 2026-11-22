@@ -29,15 +29,15 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "POST", "/", NULL, NULL, "", payload,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "Struts2 CVE-2017-5638: no response");
+        ar_out(ctx, "http-vuln-cve2017-5638: INFO Struts2 CVE-2017-5638: no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (strstr(body, "uid=") != NULL || strstr(body, "gid=") != NULL ||
         strstr(body, "VULNERABLE") != NULL) {
-        ar_out(ctx, "VULNERABLE: Apache Struts2 CVE-2017-5638 command execution");
+        ar_out(ctx, "http-vuln-cve2017-5638: INFO matches probe for: Apache Struts2 CVE-2017-5638 command execution");
     } else {
-        ar_out(ctx, "not vulnerable: Apache Struts2 CVE-2017-5638 (HTTP %d)",
+        ar_out(ctx, "http-vuln-cve2017-5638: INFO probe did not match: Apache Struts2 CVE-2017-5638 (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

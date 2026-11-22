@@ -34,7 +34,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Joomla brute: no valid credentials in 5 attempts");
+        ar_out(ctx, "http-joomla-brute-2: INFO Joomla brute: no valid credentials in 5 attempts");
     }
     return 0;
 }

@@ -24,7 +24,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "DNS brute: no names resolved under example.com");
+        ar_out(ctx, "dns-brute-2: INFO DNS brute: no names resolved under example.com");
     }
     return 0;
 }

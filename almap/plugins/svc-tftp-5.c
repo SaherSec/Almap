@@ -17,13 +17,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = as_udp_exchange(ctx, req, sizeof(req), resp, sizeof(resp),
                         ctx->timeout_ms);
     if (n <= 0) {
-        ar_out(ctx, "svc-tftp-5: no UDP reply");
+        ar_out(ctx, "svc-tftp-5: INFO no UDP reply");
         return 0;
     }
     if (n >= 4 && ((unsigned char)resp[1] == 0x03 || (unsigned char)resp[1] == 0x05)) {
-        ar_out(ctx, "svc-tftp-5: expected reply seen (%d bytes)", n);
+        ar_out(ctx, "svc-tftp-5: INFO expected reply seen (%d bytes)", n);
     } else {
-        ar_out(ctx, "svc-tftp-5: unexpected reply (%d bytes)", n);
+        ar_out(ctx, "svc-tftp-5: INFO unexpected reply (%d bytes)", n);
     }
     return 0;
 }

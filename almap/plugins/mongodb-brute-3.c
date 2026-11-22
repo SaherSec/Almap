@@ -16,10 +16,10 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found > 0) {
-        ar_out(ctx, "MongoDB brute: %d/5 connections accepted; "
+        ar_out(ctx, "mongodb-brute-3: INFO MongoDB brute: %d/5 connections accepted; "
                "authentication required", found);
     } else {
-        ar_out(ctx, "MongoDB brute: no connections");
+        ar_out(ctx, "mongodb-brute-3: INFO MongoDB brute: no connections");
     }
     return 0;
 }

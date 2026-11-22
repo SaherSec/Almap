@@ -12,16 +12,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ftp_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "ProFTPD backdoor: no FTP banner");
+        ar_out(ctx, "ftp-proftpd-backdoor-2: INFO ProFTPD backdoor: no FTP banner");
         return 0;
     }
     code = ar_ftp_cmd(fd, "HELP ACIDBITCHEZ", reply, sizeof(reply),
                       ctx->timeout_ms);
     close(fd);
     if (ar_contains_ci(banner, "ProFTPD") && code == 220) {
-        ar_out(ctx, "VULNERABLE: ProFTPD backdoor (banner %s)", banner);
+        ar_out(ctx, "ftp-proftpd-backdoor-2: INFO matches probe for: ProFTPD backdoor (banner %s)", banner);
     } else {
-        ar_out(ctx, "not vulnerable: ProFTPD backdoor (code %d)", code);
+        ar_out(ctx, "ftp-proftpd-backdoor-2: INFO probe did not match: ProFTPD backdoor (code %d)", code);
     }
     return 0;
 }

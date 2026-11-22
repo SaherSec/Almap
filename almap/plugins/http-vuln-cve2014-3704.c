@@ -19,7 +19,7 @@ int almap_script_run(AlScriptContext *ctx) {
             sscanf(body, "%*[^D]Drupal %d.%d", &major, &minor) == 2) {
             (void)snprintf(ver, sizeof(ver), "%d.%d", major, minor);
             if (major == 7 && minor < 32) {
-                ar_out(ctx, "VULNERABLE: Drupal %s (CVE-2014-3704 Drupalgeddon)",
+                ar_out(ctx, "http-vuln-cve2014-3704: INFO matches probe for: Drupal %s (CVE-2014-3704 Drupalgeddon)",
                        ver);
                 return 0;
             }
@@ -33,14 +33,14 @@ int almap_script_run(AlScriptContext *ctx) {
         if (ar_http_status(resp) == 500 &&
             (strstr(body, "PDOException") != NULL ||
              strstr(body, "DatabaseException") != NULL)) {
-            ar_out(ctx, "VULNERABLE: Drupal CVE-2014-3704 SQL injection signature");
+            ar_out(ctx, "http-vuln-cve2014-3704: INFO matches probe for: Drupal CVE-2014-3704 SQL injection signature");
             return 0;
         }
         if (strstr(body, "Drupal") != NULL) {
-            ar_out(ctx, "Drupal detected; CVE-2014-3704 not confirmed");
+            ar_out(ctx, "http-vuln-cve2014-3704: INFO Drupal probe matched; CVE-2014-3704 not confirmed");
             return 0;
         }
     }
-    ar_out(ctx, "not vulnerable: Drupal CVE-2014-3704 not confirmed");
+    ar_out(ctx, "http-vuln-cve2014-3704: INFO probe did not match: Drupal CVE-2014-3704 not confirmed");
     return 0;
 }

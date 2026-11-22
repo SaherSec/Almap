@@ -18,13 +18,13 @@ int almap_script_run(AlScriptContext *ctx) {
                                 "/bin/echo ALMAP_SHELLSHOCK\r\n",
                                 NULL, NULL, resp, sizeof(resp));
         if (n > 0 && ar_contains_ci(resp, "ALMAP_SHELLSHOCK")) {
-            ar_append(ctx, "%s%s", (found == 0) ? "VULNERABLE: " : ", ",
+            ar_append(ctx, "%s%s", (found == 0) ? "matches probe for: " : ", ",
                       paths[i]);
             found++;
         }
     }
     if (found == 0) {
-        ar_out(ctx, "not vulnerable: Shellshock");
+        ar_out(ctx, "http-shellshock-2: INFO probe did not match: Shellshock");
     }
     return 0;
 }

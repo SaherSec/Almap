@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Jenkins jobs: no matching paths");
+        ar_out(ctx, "jenkins-jobs-3: INFO Jenkins jobs: no matching paths");
     }
     return 0;
 }

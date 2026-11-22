@@ -15,16 +15,16 @@ int almap_script_run(AlScriptContext *ctx) {
                         "application/x-www-form-urlencoded",
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "CVE-2022-22965: no response");
+        ar_out(ctx, "http-vuln-cve2022-22965: INFO CVE-2022-22965: no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "Whitelabel") ||
         ar_http_status(resp) == 400 || ar_http_status(resp) == 500) {
-        ar_out(ctx, "potentially vulnerable: CVE-2022-22965 Spring4Shell "
+        ar_out(ctx, "http-vuln-cve2022-22965: INFO potentially matches probe for: CVE-2022-22965 Spring4Shell "
                "(HTTP %d)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2022-22965 Spring4Shell "
+        ar_out(ctx, "http-vuln-cve2022-22965: INFO probe did not match: CVE-2022-22965 Spring4Shell "
                "(HTTP %d)", ar_http_status(resp));
     }
     return 0;

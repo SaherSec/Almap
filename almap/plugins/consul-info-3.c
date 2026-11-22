@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Consul: no matching paths");
+        ar_out(ctx, "consul-info-3: INFO Consul: no matching paths");
     }
     return 0;
 }

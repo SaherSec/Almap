@@ -15,10 +15,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         "Cookie: JSESSIONID=../../../../../tmp/probe\r\n",
                         NULL, NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2020-9484-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2020-9484-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: GET / [%d] (CVE-2020-9484; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2020-9484-4: INFO probe sent: GET / [%d] (CVE-2020-9484; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

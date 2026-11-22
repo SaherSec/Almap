@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2020-1938-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2020-1938-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "Tomcat")) {
-        ar_out(ctx, "VULNERABLE: / [%d] (CVE-2020-1938)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2020-1938-4: INFO matches probe for: / [%d] (CVE-2020-1938)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2020-1938 (/ [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2020-1938-4: INFO probe did not match: CVE-2020-1938 (/ [%d])", ar_http_status(resp));
     }
     return 0;
 }

@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "CVE-2010-0738: no matching paths");
+        ar_out(ctx, "http-vuln-cve2010-0738-3: INFO CVE-2010-0738: no matching paths");
     }
     return 0;
 }

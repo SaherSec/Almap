@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "svn: no matching paths");
+        ar_out(ctx, "http-svn-enum-2: INFO svn: no matching paths");
     }
     return 0;
 }

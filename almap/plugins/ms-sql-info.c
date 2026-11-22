@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     rc = ar_mssql_prelogin(ctx, version, sizeof(version),
                            instance, sizeof(instance));
     if (rc != 0) {
-        ar_out(ctx, "MSSQL info: no TDS prelogin response");
+        ar_out(ctx, "ms-sql-info: INFO MSSQL info: no TDS prelogin response");
         return 0;
     }
-    ar_out(ctx, "MSSQL version: %s", version[0] != '\0' ? version : "unknown");
+    ar_out(ctx, "ms-sql-info: INFO MSSQL version: %s", version[0] != '\0' ? version : "unknown");
     if (instance[0] != '\0') {
         ar_append(ctx, " instance: %s", instance);
     }

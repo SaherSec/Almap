@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         int fd = as_connect(ctx);
         int n;
         if (fd < 0) {
-            ar_out(ctx, "rtsp-url-brute: not reachable");
+            ar_out(ctx, "rtsp-url-brute-4: INFO rtsp-url-brute: not reachable");
             return 0;
         }
         n = snprintf(req, sizeof(req),
@@ -30,11 +30,11 @@ int almap_script_run(AlScriptContext *ctx) {
             as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms) > 0 &&
             ar_starts_ci(resp, "RTSP/1.0 200")) {
             close(fd);
-            ar_out(ctx, "rtsp-url-brute: %s -> 200 OK (verify)", paths[i]);
+            ar_out(ctx, "rtsp-url-brute-4: INFO rtsp-url-brute: %s -> 200 OK (verify)", paths[i]);
             return 0;
         }
         close(fd);
     }
-    ar_out(ctx, "rtsp-url-brute: none of 5 common paths returned 200");
+    ar_out(ctx, "rtsp-url-brute-4: INFO rtsp-url-brute: none of 5 common paths returned 200");
     return 0;
 }

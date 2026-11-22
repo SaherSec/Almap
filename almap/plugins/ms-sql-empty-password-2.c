@@ -10,11 +10,11 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     rc = ar_mssql_empty_login(ctx, msg, sizeof(msg));
     if (rc == 0) {
-        ar_out(ctx, "MSSQL empty password: sa login accepted");
+        ar_out(ctx, "ms-sql-empty-password-2: INFO MSSQL empty password: sa login accepted");
     } else if (rc > 0) {
-        ar_out(ctx, "MSSQL empty password: sa login rejected (%s)", msg);
+        ar_out(ctx, "ms-sql-empty-password-2: INFO MSSQL empty password: sa login rejected (%s)", msg);
     } else {
-        ar_out(ctx, "MSSQL empty password: no TDS response");
+        ar_out(ctx, "ms-sql-empty-password-2: INFO MSSQL empty password: no TDS response");
     }
     return 0;
 }

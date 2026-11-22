@@ -16,20 +16,20 @@ int almap_script_run(AlScriptContext *ctx) {
                                sizeof(salt));
         int rc;
         if (fd < 0) {
-            ar_out(ctx, "MySQL CVE-2012-2122: no handshake");
+            ar_out(ctx, "mysql-vuln-cve2012-2122-2: INFO MySQL CVE-2012-2122: no handshake");
             return 0;
         }
         rc = ar_mysql_login(fd, "root", "wrong", 0, ctx->timeout_ms,
                             msg, sizeof(msg));
         close(fd);
         if (rc == 0) {
-            ar_out(ctx, "VULNERABLE: MySQL CVE-2012-2122 auth bypass");
+            ar_out(ctx, "mysql-vuln-cve2012-2122-2: INFO matches probe for: MySQL CVE-2012-2122 auth bypass");
             found = 1;
             break;
         }
     }
     if (!found) {
-        ar_out(ctx, "not vulnerable: MySQL CVE-2012-2122");
+        ar_out(ctx, "mysql-vuln-cve2012-2122-2: INFO probe did not match: MySQL CVE-2012-2122");
     }
     return 0;
 }

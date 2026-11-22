@@ -17,11 +17,11 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = as_udp_exchange(ctx, req, sizeof(req), resp, sizeof(resp), ctx->timeout_ms);
     if (n <= 4) {
-        ar_out(ctx, "coap-check-4: short/invalid CoAP reply (%d bytes)", n);
+        ar_out(ctx, "coap-check-4: INFO short/invalid CoAP reply (%d bytes)", n);
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "coap-check-4: %d bytes from /.well-known/core: %.*s", n,
+    ar_out(ctx, "coap-check-4: INFO %d bytes from /.well-known/core: %.*s", n,
            (n - 4 > 180) ? 180 : n - 4, resp + 4);
     return 0;
 }

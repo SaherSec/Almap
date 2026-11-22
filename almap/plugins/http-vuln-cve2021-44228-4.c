@@ -11,10 +11,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/", NULL, "X-Api-Version: ${jndi:ldap://127.0.0.1/a}\r\n", NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2021-44228-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2021-44228-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: / [%d] (CVE-2021-44228; verify out-of-band)",
+    ar_out(ctx, "http-vuln-cve2021-44228-4: INFO probe sent: / [%d] (CVE-2021-44228; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

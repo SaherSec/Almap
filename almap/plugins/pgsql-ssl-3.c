@@ -13,22 +13,22 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "PostgreSQL SSL: no connection");
+        ar_out(ctx, "pgsql-ssl-3: INFO PostgreSQL SSL: no connection");
         return 0;
     }
     if (as_send_all(fd, req, sizeof(req), ctx->timeout_ms) != 0 ||
         as_recv_exact(fd, resp, 1, ctx->timeout_ms) != 0) {
         close(fd);
-        ar_out(ctx, "PostgreSQL SSL: no response");
+        ar_out(ctx, "pgsql-ssl-3: INFO PostgreSQL SSL: no response");
         return 0;
     }
     close(fd);
     if (resp[0] == 'S') {
-        ar_out(ctx, "PostgreSQL SSL: supported");
+        ar_out(ctx, "pgsql-ssl-3: INFO PostgreSQL SSL: supported");
     } else if (resp[0] == 'N') {
-        ar_out(ctx, "PostgreSQL SSL: not supported");
+        ar_out(ctx, "pgsql-ssl-3: INFO PostgreSQL SSL: not supported");
     } else {
-        ar_out(ctx, "PostgreSQL SSL: unexpected response 0x%02x", resp[0]);
+        ar_out(ctx, "pgsql-ssl-3: INFO PostgreSQL SSL: unexpected response 0x%02x", resp[0]);
     }
     return 0;
 }

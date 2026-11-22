@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "CVE-2014-3704: no matching paths");
+        ar_out(ctx, "http-vuln-cve2014-3704-3: INFO CVE-2014-3704: no matching paths");
     }
     return 0;
 }

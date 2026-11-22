@@ -15,9 +15,9 @@ int almap_script_run(AlScriptContext *ctx) {
     (void)ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os), lan, sizeof(lan));
     if (fd >= 0) {
         close(fd);
-        ar_out(ctx, "SMB null session ALLOWED (os=%s)", os);
+        ar_out(ctx, "smb-null-session-check-4: INFO SMB null session ALLOWED (os=%s)", os);
         return 0;
     }
-    ar_out(ctx, "SMB null session refused");
+    ar_out(ctx, "smb-null-session-check-4: INFO SMB null session refused");
     return 0;
 }

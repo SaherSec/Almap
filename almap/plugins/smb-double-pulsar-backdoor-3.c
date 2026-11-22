@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
         d1 = ar_smb1_dialect(resp, n);
     }
     if (d1 <= 5) {
-        ar_out(ctx, "SMBv1 offered (%s); DoublePulsar not confirmed",
+        ar_out(ctx, "smb-double-pulsar-backdoor-3: INFO SMBv1 offered (%s); DoublePulsar not confirmed",
                ar_smb1_dialect_name(d1));
     } else {
-        ar_out(ctx, "SMBv1 not offered; DoublePulsar not detected");
+        ar_out(ctx, "smb-double-pulsar-backdoor-3: INFO SMBv1 not offered; DoublePulsar probe did not match");
     }
     return 0;
 }

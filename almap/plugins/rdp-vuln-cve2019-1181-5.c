@@ -17,24 +17,24 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "rdp-vuln-cve2019-1181-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "rdp-vuln-cve2019-1181-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     if (as_send_all(fd, req, sizeof(req), ctx->timeout_ms) != 0) {
         close(fd);
-        ar_out(ctx, "rdp-vuln-cve2019-1181-5: send failed");
+        ar_out(ctx, "rdp-vuln-cve2019-1181-5: INFO send failed");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "rdp-vuln-cve2019-1181-5: no response");
+        ar_out(ctx, "rdp-vuln-cve2019-1181-5: INFO no response");
         return 0;
     }
     if (n >= 11 && (unsigned char)resp[0] == 0x03 && (unsigned char)resp[5] == 0xd0) {
-        ar_out(ctx, "rdp-vuln-cve2019-1181-5: expected reply seen (%d bytes)", n);
+        ar_out(ctx, "rdp-vuln-cve2019-1181-5: INFO expected reply seen (%d bytes)", n);
     } else {
-        ar_out(ctx, "rdp-vuln-cve2019-1181-5: unexpected reply (%d bytes)", n);
+        ar_out(ctx, "rdp-vuln-cve2019-1181-5: INFO unexpected reply (%d bytes)", n);
     }
     return 0;
 }

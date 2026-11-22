@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "SNMP communities: none accepted");
+        ar_out(ctx, "snmp-brute: INFO SNMP communities: none accepted");
     }
     return 0;
 }

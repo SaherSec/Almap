@@ -34,7 +34,7 @@ int almap_script_run(AlScriptContext *ctx) {
     if (found > 0 && head[0] != '\0') {
         ar_append(ctx, " HEAD=%s", head);
     } else if (found == 0) {
-        ar_out(ctx, "git exposed: no");
+        ar_out(ctx, "http-git: INFO git exposed: no");
     }
     return 0;
 }

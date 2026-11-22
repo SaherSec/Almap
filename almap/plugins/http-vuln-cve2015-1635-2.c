@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         NULL, NULL, resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 416 || code == 200 || code == 206)) {
-        ar_out(ctx, "potentially vulnerable: CVE-2015-1635 HTTP.sys "
+        ar_out(ctx, "http-vuln-cve2015-1635-2: INFO potentially matches probe for: CVE-2015-1635 HTTP.sys "
                "Range handling (HTTP %d)", code);
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2015-1635 (HTTP %d)", code);
+        ar_out(ctx, "http-vuln-cve2015-1635-2: INFO probe did not match: CVE-2015-1635 (HTTP %d)", code);
     }
     return 0;
 }

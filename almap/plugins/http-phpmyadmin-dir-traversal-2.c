@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "phpMyAdmin: no matching paths");
+        ar_out(ctx, "http-phpmyadmin-dir-traversal-2: INFO phpMyAdmin: no matching paths");
     }
     return 0;
 }

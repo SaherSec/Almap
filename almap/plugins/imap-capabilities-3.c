@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "IMAP capabilities: no connection");
+        ar_out(ctx, "imap-capabilities-3: INFO IMAP capabilities: no connection");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), 800);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "IMAP capabilities: no banner");
+        ar_out(ctx, "imap-capabilities-3: INFO IMAP capabilities: no banner");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "IMAP capabilities: %.200s", resp);
+    ar_out(ctx, "imap-capabilities-3: INFO IMAP capabilities: %.200s", resp);
     return 0;
 }

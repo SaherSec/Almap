@@ -13,10 +13,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     for (i = 0; i < 5; i++) {
         if (ar_pg_login(ctx, "postgres", words[i], msg, sizeof(msg)) == 0) {
-            ar_out(ctx, "pgsql-auth-check: postgres:%s ACCEPTED (verify)", words[i]);
+            ar_out(ctx, "pgsql-auth-check-4: INFO pgsql-auth-check: postgres:%s ACCEPTED (verify)", words[i]);
             return 0;
         }
     }
-    ar_out(ctx, "pgsql-auth-check: all 5 default passwords rejected");
+    ar_out(ctx, "pgsql-auth-check-4: INFO pgsql-auth-check: all 5 default passwords rejected");
     return 0;
 }

@@ -21,18 +21,18 @@ int almap_script_run(AlScriptContext *ctx) {
         }
         fd = as_connect(ctx);
         if (fd < 0) {
-            ar_out(ctx, "redis-auth-check: not reachable");
+            ar_out(ctx, "redis-auth-check-4: INFO redis-auth-check: not reachable");
             return 0;
         }
         if (as_send_all(fd, cmd, (size_t)n, ctx->timeout_ms) == 0 &&
             as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms) > 0 &&
             resp[0] == '+') {
             close(fd);
-            ar_out(ctx, "redis-auth-check: password '%s' ACCEPTED (verify)", words[i]);
+            ar_out(ctx, "redis-auth-check-4: INFO redis-auth-check: password '%s' ACCEPTED (verify)", words[i]);
             return 0;
         }
         close(fd);
     }
-    ar_out(ctx, "redis-auth-check: all 5 default passwords rejected");
+    ar_out(ctx, "redis-auth-check-4: INFO redis-auth-check: all 5 default passwords rejected");
     return 0;
 }

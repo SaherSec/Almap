@@ -28,16 +28,16 @@ int almap_script_run(AlScriptContext *ctx) {
         pkt[o++] = 0x00; pkt[o++] = (unsigned char)wl;
         memcpy(pkt + o, words[i], wl); o += wl;
         fd = as_connect(ctx);
-        if (fd < 0) { ar_out(ctx, "mqtt-auth-check: not reachable"); return 0; }
+        if (fd < 0) { ar_out(ctx, "mqtt-auth-check-4: INFO mqtt-auth-check: not reachable"); return 0; }
         if (as_send_all(fd, pkt, o, ctx->timeout_ms) == 0 &&
             as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms) >= 4 &&
             resp[0] == 0x20 && resp[3] == 0) {
             close(fd);
-            ar_out(ctx, "mqtt-auth-check: %s:%s ACCEPTED (verify)", words[i], words[i]);
+            ar_out(ctx, "mqtt-auth-check-4: INFO mqtt-auth-check: %s:%s ACCEPTED (verify)", words[i], words[i]);
             return 0;
         }
         close(fd);
     }
-    ar_out(ctx, "mqtt-auth-check: all 5 default pairs rejected");
+    ar_out(ctx, "mqtt-auth-check-4: INFO mqtt-auth-check: all 5 default pairs rejected");
     return 0;
 }

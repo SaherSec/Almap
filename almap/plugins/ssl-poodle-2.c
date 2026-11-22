@@ -15,12 +15,12 @@ int almap_script_run(AlScriptContext *ctx) {
                             sizeof(ar_tls_cbc_ciphers[0])),
                       &ver, &cipher, 0, resp, sizeof(resp));
     if (rc == 1) {
-        ar_out(ctx, "VULNERABLE: SSLv3 CBC POODLE (%s)",
+        ar_out(ctx, "ssl-poodle-2: INFO matches probe for: SSLv3 CBC POODLE (%s)",
                ar_tls_cipher_name(cipher));
     } else if (rc == 0) {
-        ar_out(ctx, "not vulnerable: SSLv3 CBC POODLE");
+        ar_out(ctx, "ssl-poodle-2: INFO probe did not match: SSLv3 CBC POODLE");
     } else {
-        ar_out(ctx, "POODLE: no TLS handshake");
+        ar_out(ctx, "ssl-poodle-2: INFO POODLE: no TLS handshake");
     }
     return 0;
 }

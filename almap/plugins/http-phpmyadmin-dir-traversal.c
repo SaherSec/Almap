@@ -25,16 +25,16 @@ int almap_script_run(AlScriptContext *ctx) {
         if (strstr(body, "root:x:") != NULL ||
             strstr(body, "root:*:") != NULL ||
             strstr(body, "daemon:x:") != NULL) {
-            ar_out(ctx, "VULNERABLE: phpMyAdmin directory traversal at %s",
+            ar_out(ctx, "http-phpmyadmin-dir-traversal: INFO matches probe for: phpMyAdmin directory traversal at %s",
                    paths[i]);
             return 0;
         }
         if (strstr(body, "phpMyAdmin") != NULL &&
             ar_http_status(resp) == 200) {
-            ar_out(ctx, "phpMyAdmin detected; traversal not confirmed");
+            ar_out(ctx, "http-phpmyadmin-dir-traversal: INFO phpMyAdmin probe matched; traversal not confirmed");
             return 0;
         }
     }
-    ar_out(ctx, "not vulnerable: phpMyAdmin directory traversal not confirmed");
+    ar_out(ctx, "http-phpmyadmin-dir-traversal: INFO probe did not match: phpMyAdmin directory traversal not confirmed");
     return 0;
 }

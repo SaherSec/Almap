@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_oracle_tns(ctx, "(CONNECT_DATA=(COMMAND=version))", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "oracle-tns-descriptor-4: Oracle TNS listener not responding");
+        ar_out(ctx, "oracle-tns-descriptor-4: INFO Oracle TNS listener not responding");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "oracle-tns-descriptor-4: TNS reply [%d bytes] %.200s", n, resp);
+    ar_out(ctx, "oracle-tns-descriptor-4: INFO TNS reply [%d bytes] %.200s", n, resp);
     return 0;
 }

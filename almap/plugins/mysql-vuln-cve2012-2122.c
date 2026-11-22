@@ -14,13 +14,13 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_mysql_open(ctx, version, sizeof(version), salt, sizeof(salt));
     if (fd < 0) {
-        ar_out(ctx, "MySQL CVE-2012-2122: no MySQL handshake");
+        ar_out(ctx, "mysql-vuln-cve2012-2122: INFO MySQL CVE-2012-2122: no MySQL handshake");
         return 0;
     }
     rc = ar_mysql_login(fd, "root", "", 1, ctx->timeout_ms, msg, sizeof(msg));
     close(fd);
     if (rc == 0) {
-        ar_out(ctx, "MySQL CVE-2012-2122: root accepts an empty password "
+        ar_out(ctx, "mysql-vuln-cve2012-2122: INFO MySQL CVE-2012-2122: root accepts an empty password "
                "(not the memcmp bypass)");
         return 0;
     }
@@ -32,11 +32,11 @@ int almap_script_run(AlScriptContext *ctx) {
         rc = ar_mysql_login(fd, "root", "x", 0, 50, msg, sizeof(msg));
         close(fd);
         if (rc == 0) {
-            ar_out(ctx, "VULNERABLE: MySQL CVE-2012-2122 auth bypass "
+            ar_out(ctx, "mysql-vuln-cve2012-2122: INFO matches probe for: MySQL CVE-2012-2122 auth bypass "
                    "after %d attempts (%s)", i + 1, version);
             return 0;
         }
     }
-    ar_out(ctx, "not vulnerable: MySQL CVE-2012-2122 not triggered");
+    ar_out(ctx, "mysql-vuln-cve2012-2122: INFO probe did not match: MySQL CVE-2012-2122 not triggered");
     return 0;
 }

@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/functionRouter", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2022-22963-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2022-22963-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "Spring")) {
-        ar_out(ctx, "VULNERABLE: /functionRouter [%d] (CVE-2022-22963)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2022-22963-4: INFO matches probe for: /functionRouter [%d] (CVE-2022-22963)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2022-22963 (/functionRouter [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2022-22963-4: INFO probe did not match: CVE-2022-22963 (/functionRouter [%d])", ar_http_status(resp));
     }
     return 0;
 }

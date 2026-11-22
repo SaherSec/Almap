@@ -23,11 +23,11 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, call, sizeof(call), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 12) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "rpc-portmap: no RPC reply on port %d", ctx->port);
+        ar_out(ctx, "rpc-portmap-4: INFO rpc-portmap: no RPC reply on port %d", ctx->port);
         return 0;
     }
     close(fd);
     /* reply: [4 rm][4 xid][4 mtype==1] accept state at offset 20 */
-    ar_out(ctx, "rpc-portmap: RPC reply %d bytes (portmapper responding)", n);
+    ar_out(ctx, "rpc-portmap-4: INFO rpc-portmap: RPC reply %d bytes (portmapper responding)", n);
     return 0;
 }

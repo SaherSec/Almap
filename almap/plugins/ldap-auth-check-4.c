@@ -28,16 +28,16 @@ int almap_script_run(AlScriptContext *ctx) {
         pkt[o++] = 0x80; pkt[o++] = (unsigned char)wl;
         memcpy(pkt + o, words[i], wl); o += wl;
         fd = as_connect(ctx);
-        if (fd < 0) { ar_out(ctx, "ldap-auth-check: not reachable"); return 0; }
+        if (fd < 0) { ar_out(ctx, "ldap-auth-check-4: INFO ldap-auth-check: not reachable"); return 0; }
         if (as_send_all(fd, pkt, o, ctx->timeout_ms) == 0 &&
             as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms) >= 10 &&
             resp[5] == 0x61 && resp[9] == 0x00) {
             close(fd);
-            ar_out(ctx, "ldap-auth-check: %s ACCEPTED (verify)", dn);
+            ar_out(ctx, "ldap-auth-check-4: INFO ldap-auth-check: %s ACCEPTED (verify)", dn);
             return 0;
         }
         close(fd);
     }
-    ar_out(ctx, "ldap-auth-check: all 5 default binds rejected");
+    ar_out(ctx, "ldap-auth-check-4: INFO ldap-auth-check: all 5 default binds rejected");
     return 0;
 }

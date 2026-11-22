@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "VMware: no matching paths");
+        ar_out(ctx, "http-vmware-path-vuln-2: INFO VMware: no matching paths");
     }
     return 0;
 }

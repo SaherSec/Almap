@@ -16,17 +16,17 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_smb2_negotiate(ctx, resp, sizeof(resp));
     if (n > 0) {
         dialect = ar_smb2_dialect(resp, n);
-        ar_out(ctx, "smb-vuln-ms07-029-4: SMB2 dialect=%s security=0x%x; verify MS07-029",
+        ar_out(ctx, "smb-vuln-ms07-029-4: INFO SMB2 dialect=%s security=0x%x; verify MS07-029",
                ar_smb2_dialect_name(dialect),
                ar_smb2_security_mode(resp, n));
         return 0;
     }
     n = ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os), lan, sizeof(lan));
     if (n == 0) {
-        ar_out(ctx, "smb-vuln-ms07-029-4: SMB1 os=%s lan=%s; verify MS07-029", os, lan);
+        ar_out(ctx, "smb-vuln-ms07-029-4: INFO SMB1 os=%s lan=%s; verify MS07-029", os, lan);
         close(fd);
     } else {
-        ar_out(ctx, "smb-vuln-ms07-029-4: no SMB response; verify MS07-029");
+        ar_out(ctx, "smb-vuln-ms07-029-4: INFO no SMB response; verify MS07-029");
     }
     return 0;
 }

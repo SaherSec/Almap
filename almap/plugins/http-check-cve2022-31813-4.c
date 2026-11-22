@@ -15,10 +15,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         "X-Forwarded-For: 127.0.0.1\r\n",
                         NULL, NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2022-31813-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2022-31813-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: GET / [%d] (CVE-2022-31813; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2022-31813-4: INFO probe sent: GET / [%d] (CVE-2022-31813; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

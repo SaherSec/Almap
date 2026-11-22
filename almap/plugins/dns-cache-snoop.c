@@ -39,7 +39,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "DNS cache: no cached answers; recursion %s",
+        ar_out(ctx, "dns-cache-snoop: INFO DNS cache: no cached answers; recursion %s",
                recursion ? "available" : "not confirmed");
     } else {
         ar_append(ctx, "; recursion %s", recursion ? "available" :

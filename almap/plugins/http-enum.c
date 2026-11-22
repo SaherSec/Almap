@@ -25,7 +25,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "http-enum: no common paths found");
+        ar_out(ctx, "http-enum: INFO no common paths found");
     }
     return 0;
 }

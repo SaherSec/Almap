@@ -13,22 +13,22 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "PostgreSQL version: no connection");
+        ar_out(ctx, "pgsql-version-3: INFO PostgreSQL version: no connection");
         return 0;
     }
     if (as_send_all(fd, req, sizeof(req), ctx->timeout_ms) != 0 ||
         as_recv_exact(fd, resp, 1, ctx->timeout_ms) != 0) {
         close(fd);
-        ar_out(ctx, "PostgreSQL version: no SSLRequest response");
+        ar_out(ctx, "pgsql-version-3: INFO PostgreSQL version: no SSLRequest response");
         return 0;
     }
     close(fd);
     if (resp[0] == 'S') {
-        ar_out(ctx, "PostgreSQL version: SSL supported");
+        ar_out(ctx, "pgsql-version-3: INFO PostgreSQL version: SSL supported");
     } else if (resp[0] == 'N') {
-        ar_out(ctx, "PostgreSQL version: SSL refused");
+        ar_out(ctx, "pgsql-version-3: INFO PostgreSQL version: SSL refused");
     } else {
-        ar_out(ctx, "PostgreSQL version: response 0x%02x", resp[0]);
+        ar_out(ctx, "pgsql-version-3: INFO PostgreSQL version: response 0x%02x", resp[0]);
     }
     return 0;
 }

@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "POST", "/users", NULL, NULL, "username%5B%23this.getClass%28%29%5D=x&password=x&repeatedPassword=x",
                         "application/x-www-form-urlencoded", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2018-1273-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2018-1273-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: POST /users [%d] (CVE2018-1273; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2018-1273-4: INFO probe sent: POST /users [%d] (CVE2018-1273; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

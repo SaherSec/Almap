@@ -16,10 +16,10 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found > 0) {
-        ar_out(ctx, "PostgreSQL brute: %d/5 connections accepted; "
+        ar_out(ctx, "pgsql-brute-3: INFO PostgreSQL brute: %d/5 connections accepted; "
                "password authentication required", found);
     } else {
-        ar_out(ctx, "PostgreSQL brute: no connections");
+        ar_out(ctx, "pgsql-brute-3: INFO PostgreSQL brute: no connections");
     }
     return 0;
 }

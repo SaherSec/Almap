@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Docker containers: no matching paths");
+        ar_out(ctx, "docker-containers-3: INFO Docker containers: no matching paths");
     }
     return 0;
 }

@@ -13,10 +13,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         "ALmap PUT test", "text/plain", resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 200 || code == 201 || code == 204)) {
-        ar_out(ctx, "VULNERABLE: unauthenticated PUT accepted (HTTP %d)",
+        ar_out(ctx, "http-put-2: INFO matches probe for: unauthenticated PUT accepted (HTTP %d)",
                code);
     } else {
-        ar_out(ctx, "not vulnerable: PUT rejected (HTTP %d)", code);
+        ar_out(ctx, "http-put-2: INFO probe did not match: PUT rejected (HTTP %d)", code);
     }
     return 0;
 }

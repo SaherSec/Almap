@@ -23,10 +23,10 @@ int almap_script_run(AlScriptContext *ctx) {
         close(fd);
     }
     if (os[0] == '\0' && lan[0] == '\0' && dialect == 0xFFFF) {
-        ar_out(ctx, "SMB OS: not detected");
+        ar_out(ctx, "smb-os-discovery-3: INFO SMB OS: probe did not match");
         return 0;
     }
-    ar_out(ctx, "SMB OS: %s", os[0] != '\0' ? os : "unknown");
+    ar_out(ctx, "smb-os-discovery-3: INFO SMB OS: %s", os[0] != '\0' ? os : "unknown");
     if (lan[0] != '\0') {
         ar_append(ctx, " LAN Manager: %s", lan);
     }

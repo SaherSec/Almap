@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     rc = ar_pg_start(ctx, "postgres", "postgres", &ssl);
     if (rc < 0) {
-        ar_out(ctx, "pgsql-version-probe-4: PostgreSQL not reachable");
+        ar_out(ctx, "pgsql-version-probe-4: INFO PostgreSQL not reachable");
         return 0;
     }
-    ar_out(ctx, "pgsql-version-probe-4: startup ok (ssl=%s, user=postgres, db=postgres)",
+    ar_out(ctx, "pgsql-version-probe-4: INFO startup ok (ssl=%s, user=postgres, db=postgres)",
            ssl ? "offered" : "disabled");
     return 0;
 }

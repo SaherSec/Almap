@@ -19,25 +19,25 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "iot-stomp-connect-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "iot-stomp-connect-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     if (as_send_all(fd, req, sizeof(req), ctx->timeout_ms) != 0) {
         close(fd);
-        ar_out(ctx, "iot-stomp-connect-5: send failed");
+        ar_out(ctx, "iot-stomp-connect-5: INFO send failed");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "iot-stomp-connect-5: no response");
+        ar_out(ctx, "iot-stomp-connect-5: INFO no response");
         return 0;
     }
     ar_clean(resp);
     if (ar_contains_ci(resp, "CONNECTED")) {
-        ar_out(ctx, "iot-stomp-connect-5: detected");
+        ar_out(ctx, "iot-stomp-connect-5: INFO probe matched");
     } else {
-        ar_out(ctx, "iot-stomp-connect-5: not detected");
+        ar_out(ctx, "iot-stomp-connect-5: INFO probe did not match");
     }
     return 0;
 }

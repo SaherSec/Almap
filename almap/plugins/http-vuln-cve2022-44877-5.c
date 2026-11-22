@@ -12,13 +12,13 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/login/index.php", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2022-44877-5: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2022-44877-5: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "CentOS")) {
-        ar_out(ctx, "http-vuln-cve2022-44877-5: detected (HTTP %d)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2022-44877-5: INFO probe matched (HTTP %d)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "http-vuln-cve2022-44877-5: not detected (HTTP %d)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2022-44877-5: INFO probe did not match (HTTP %d)", ar_http_status(resp));
     }
     return 0;
 }

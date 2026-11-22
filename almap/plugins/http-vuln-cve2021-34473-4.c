@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/autodiscover/autodiscover.json?@test.com=/mapi/nspi", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2021-34473-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2021-34473-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "Exchange")) {
-        ar_out(ctx, "VULNERABLE: /autodiscover/autodiscover.json?@test.com=/mapi/nspi [%d] (CVE-2021-34473)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2021-34473-4: INFO matches probe for: /autodiscover/autodiscover.json?@test.com=/mapi/nspi [%d] (CVE-2021-34473)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2021-34473 (/autodiscover/autodiscover.json?@test.com=/mapi/nspi [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2021-34473-4: INFO probe did not match: CVE-2021-34473 (/autodiscover/autodiscover.json?@test.com=/mapi/nspi [%d])", ar_http_status(resp));
     }
     return 0;
 }

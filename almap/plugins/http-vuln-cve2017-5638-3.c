@@ -16,14 +16,14 @@ int almap_script_run(AlScriptContext *ctx) {
                         "application/x-www-form-urlencoded",
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "CVE-2017-5638: no response");
+        ar_out(ctx, "http-vuln-cve2017-5638-3: INFO CVE-2017-5638: no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "uid=") || ar_contains_ci(body, "gid=")) {
-        ar_out(ctx, "VULNERABLE: CVE-2017-5638 Struts2 RCE");
+        ar_out(ctx, "http-vuln-cve2017-5638-3: INFO matches probe for: CVE-2017-5638 Struts2 RCE");
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2017-5638 (HTTP %d)",
+        ar_out(ctx, "http-vuln-cve2017-5638-3: INFO probe did not match: CVE-2017-5638 (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

@@ -15,10 +15,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 200 || code == 400 || code == 411)) {
-        ar_out(ctx, "potentially vulnerable: CVE-2023-25690 Apache "
+        ar_out(ctx, "http-vuln-cve2023-25690: INFO potentially matches probe for: CVE-2023-25690 Apache "
                "mod_proxy smuggling (HTTP %d)", code);
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2023-25690 (HTTP %d)", code);
+        ar_out(ctx, "http-vuln-cve2023-25690: INFO probe did not match: CVE-2023-25690 (HTTP %d)", code);
     }
     return 0;
 }

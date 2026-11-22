@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         const char *body = ar_http_body(resp);
         if (n > 0 && (strstr(body, "root:x:") != NULL ||
                       strstr(body, "daemon:x:") != NULL)) {
-            ar_out(ctx, "VULNERABLE: VMware path traversal at %s", paths[i]);
+            ar_out(ctx, "http-vmware-path-vuln: INFO matches probe for: VMware path traversal at %s", paths[i]);
             return 0;
         }
         if (n > 0 && code != 404 &&
@@ -33,7 +33,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "VMware path vulnerability: not detected");
+        ar_out(ctx, "http-vmware-path-vuln: INFO VMware path vulnerability: probe did not match");
     }
     return 0;
 }

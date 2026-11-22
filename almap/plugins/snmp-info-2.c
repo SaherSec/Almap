@@ -32,7 +32,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "SNMP info: no response with public/private");
+        ar_out(ctx, "snmp-info-2: INFO SNMP info: no response with public/private");
     }
     return 0;
 }

@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "CVE-2024-4577: no matching paths");
+        ar_out(ctx, "http-vuln-cve2024-4577-3: INFO CVE-2024-4577: no matching paths");
     }
     return 0;
 }

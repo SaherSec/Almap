@@ -20,12 +20,12 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, bind, sizeof(bind), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 7) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "ldap-anon-bind: no BindResponse");
+        ar_out(ctx, "ldap-anon-bind-4: INFO ldap-anon-bind: no BindResponse");
         return 0;
     }
     close(fd);
     /* BindResponse (0x61); resultCode is the ENUMERATED after 0x0a 0x01 */
-    ar_out(ctx, "ldap-anon-bind: resultCode=%d%s", resp[n > 9 ? 9 : n - 1],
+    ar_out(ctx, "ldap-anon-bind-4: INFO ldap-anon-bind: resultCode=%d%s", resp[n > 9 ? 9 : n - 1],
            (resp[5] == 0x61 && resp[9] == 0x00) ? " (anonymous bind ALLOWED; verify)" : "");
     return 0;
 }

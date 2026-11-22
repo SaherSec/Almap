@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "feeds: no matching paths");
+        ar_out(ctx, "http-feed-2: INFO feeds: no matching paths");
     }
     return 0;
 }

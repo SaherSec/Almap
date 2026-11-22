@@ -17,11 +17,11 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, hs, sizeof(hs), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 1) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "rmi-registry-4: no JRMP response");
+        ar_out(ctx, "rmi-registry-4: INFO no JRMP response");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "rmi-registry-4: JRMP ack=0x%02x%s", resp[0],
+    ar_out(ctx, "rmi-registry-4: INFO JRMP ack=0x%02x%s", resp[0],
            (resp[0] == 0x4e) ? " (RMI registry live; verify)" : "");
     return 0;
 }

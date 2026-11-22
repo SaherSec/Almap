@@ -22,17 +22,17 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "rtsp-methods-4: not reachable");
+        ar_out(ctx, "rtsp-methods-4: INFO not reachable");
         return 0;
     }
     if (as_send_all(fd, req, (size_t)n, ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms)) <= 0) {
         close(fd);
-        ar_out(ctx, "rtsp-methods-4: no RTSP reply");
+        ar_out(ctx, "rtsp-methods-4: INFO no RTSP reply");
         return 0;
     }
     close(fd);
     ar_clean(resp);
-    ar_out(ctx, "rtsp-methods-4: %.200s", resp);
+    ar_out(ctx, "rtsp-methods-4: INFO %.200s", resp);
     return 0;
 }

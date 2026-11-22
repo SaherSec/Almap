@@ -10,14 +10,14 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "HTTP cookie flags: no response");
+        ar_out(ctx, "http-cookie-flags-2: INFO HTTP cookie flags: no response");
         return 0;
     }
     if (ar_stristr(resp, "set-cookie:") == NULL) {
-        ar_out(ctx, "HTTP cookie flags: no cookies set");
+        ar_out(ctx, "http-cookie-flags-2: INFO HTTP cookie flags: no cookies set");
         return 0;
     }
-    ar_out(ctx, "HTTP cookie flags: HttpOnly=%s Secure=%s",
+    ar_out(ctx, "http-cookie-flags-2: INFO HTTP cookie flags: HttpOnly=%s Secure=%s",
            ar_stristr(resp, "httponly") ? "yes" : "no",
            ar_stristr(resp, "secure") ? "yes" : "no");
     return 0;

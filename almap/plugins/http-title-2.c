@@ -13,7 +13,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "title: no response");
+        ar_out(ctx, "http-title-2: INFO title: no response");
         return 0;
     }
     p = ar_stristr(resp, "<title");
@@ -28,10 +28,10 @@ int almap_script_run(AlScriptContext *ctx) {
             memcpy(title, p, len);
             title[len] = '\0';
             ar_clean(title);
-            ar_out(ctx, "title: %s", title);
+            ar_out(ctx, "http-title-2: INFO title: %s", title);
             return 0;
         }
     }
-    ar_out(ctx, "title: not found (HTTP %d)", ar_http_status(resp));
+    ar_out(ctx, "http-title-2: INFO title: not found (HTTP %d)", ar_http_status(resp));
     return 0;
 }

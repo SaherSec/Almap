@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "CVE-2019-11043: no matching paths");
+        ar_out(ctx, "http-vuln-cve2019-11043: INFO CVE-2019-11043: no matching paths");
     }
     return 0;
 }

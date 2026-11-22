@@ -37,7 +37,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "default accounts: no HTTP Basic defaults found");
+        ar_out(ctx, "http-default-accounts: INFO default accounts: no HTTP Basic defaults found");
     }
     return 0;
 }

@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/cgi-bin/", NULL, NULL, NULL,
                         NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2019-0232-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2019-0232-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: GET /cgi-bin/ [%d] (CVE2019-0232; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2019-0232-4: INFO probe sent: GET /cgi-bin/ [%d] (CVE2019-0232; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

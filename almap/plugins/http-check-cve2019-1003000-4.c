@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/descriptorByName/org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition/checkScriptCompile", NULL, NULL, NULL,
                         NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2019-1003000-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2019-1003000-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: GET /descriptorByName/org.jenkinsci.plugi... [%d] (CVE2019-1003000; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2019-1003000-4: INFO probe sent: GET /descriptorByName/org.jenkinsci.plugi... [%d] (CVE2019-1003000; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

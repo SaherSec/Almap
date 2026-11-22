@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/computeMetadata/v1/instance/service-accounts/default/token", "metadata.google.internal", "Metadata-Flavor: Google\\r\\n", NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "cloud-gcp-token-check-4: no response from metadata endpoint");
+        ar_out(ctx, "cloud-gcp-token-check-4: INFO no response from metadata endpoint");
         return 0;
     }
-    ar_out(ctx, "cloud-gcp-token-check-4: GET /computeMetadata/v1/instance/serv... [%d]%s", ar_http_status(resp),
+    ar_out(ctx, "cloud-gcp-token-check-4: INFO GET /computeMetadata/v1/instance/serv... [%d]%s", ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (metadata EXPOSED; verify)" : "");
     return 0;
 }

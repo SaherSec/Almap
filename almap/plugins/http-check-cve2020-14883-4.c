@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/console/css/%252e%252e%252fconsole.portal", NULL, NULL, NULL,
                         NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2020-14883-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2020-14883-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: GET /console/css/%252e%252e%252fconsole.p... [%d] (CVE2020-14883; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2020-14883-4: INFO probe sent: GET /console/css/%252e%252e%252fconsole.p... [%d] (CVE2020-14883; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

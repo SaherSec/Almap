@@ -19,7 +19,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "POP3 brute: no connection");
+        ar_out(ctx, "pop3-brute-3: INFO POP3 brute: no connection");
         return 0;
     }
     for (i = 0; i < 5; i++) {
@@ -43,7 +43,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     close(fd);
     if (found == 0) {
-        ar_out(ctx, "POP3 brute: no valid credentials in 5 attempts");
+        ar_out(ctx, "pop3-brute-3: INFO POP3 brute: no valid credentials in 5 attempts");
     }
     return 0;
 }

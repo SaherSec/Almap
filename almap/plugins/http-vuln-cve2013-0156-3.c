@@ -15,10 +15,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         "application/xml", resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 200 || code == 500)) {
-        ar_out(ctx, "potentially vulnerable: CVE-2013-0156 Rails XML "
+        ar_out(ctx, "http-vuln-cve2013-0156-3: INFO potentially matches probe for: CVE-2013-0156 Rails XML "
                "(HTTP %d)", code);
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2013-0156 (HTTP %d)", code);
+        ar_out(ctx, "http-vuln-cve2013-0156-3: INFO probe did not match: CVE-2013-0156 (HTTP %d)", code);
     }
     return 0;
 }

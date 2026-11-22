@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "sitemap: no matching paths");
+        ar_out(ctx, "http-sitemap-generator-3: INFO sitemap: no matching paths");
     }
     return 0;
 }

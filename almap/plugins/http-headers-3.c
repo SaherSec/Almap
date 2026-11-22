@@ -12,11 +12,11 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "HTTP headers: no response");
+        ar_out(ctx, "http-headers-3: INFO HTTP headers: no response");
         return 0;
     }
     if (ar_http_header(resp, "Server", val, sizeof(val))) {
-        ar_out(ctx, "Server: %s", val);
+        ar_out(ctx, "http-headers-3: INFO Server: %s", val);
         found++;
     }
     if (ar_http_header(resp, "X-Powered-By", val, sizeof(val))) {
@@ -32,7 +32,7 @@ int almap_script_run(AlScriptContext *ctx) {
         found++;
     }
     if (found == 0) {
-        ar_out(ctx, "HTTP headers: none disclosed");
+        ar_out(ctx, "http-headers-3: INFO HTTP headers: none disclosed");
     }
     return 0;
 }

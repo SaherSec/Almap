@@ -13,20 +13,20 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "ssh-vuln-cve2023-38408-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "ssh-vuln-cve2023-38408-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     n = as_recv_line(fd, line, sizeof(line), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "ssh-vuln-cve2023-38408-5: no SSH banner");
+        ar_out(ctx, "ssh-vuln-cve2023-38408-5: INFO no SSH banner");
         return 0;
     }
     as_clean_field(line);
     if (ar_contains_ci(line, "OpenSSH")) {
-        ar_out(ctx, "ssh-vuln-cve2023-38408-5: banner '%s' (verify patch level)", line);
+        ar_out(ctx, "ssh-vuln-cve2023-38408-5: INFO banner '%s' (verify patch level)", line);
     } else {
-        ar_out(ctx, "ssh-vuln-cve2023-38408-5: banner '%s'", line);
+        ar_out(ctx, "ssh-vuln-cve2023-38408-5: INFO banner '%s'", line);
     }
     return 0;
 }

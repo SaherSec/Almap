@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 200 || code == 201 || code == 204)) {
-        ar_out(ctx, "potentially vulnerable: CVE-2017-12615 Tomcat "
+        ar_out(ctx, "http-vuln-cve2017-12615-3: INFO potentially matches probe for: CVE-2017-12615 Tomcat "
                "PUT (HTTP %d)", code);
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2017-12615 (HTTP %d)", code);
+        ar_out(ctx, "http-vuln-cve2017-12615-3: INFO probe did not match: CVE-2017-12615 (HTTP %d)", code);
     }
     return 0;
 }

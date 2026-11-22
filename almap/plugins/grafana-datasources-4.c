@@ -12,10 +12,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/api/datasources", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "grafana-datasources-4: no HTTP response on port %d", ctx->port);
+        ar_out(ctx, "grafana-datasources-4: INFO no HTTP response on port %d", ctx->port);
         return 0;
     }
-    ar_out(ctx, "grafana-datasources-4: GET /api/datasources [%d]%s", ar_http_status(resp),
+    ar_out(ctx, "grafana-datasources-4: INFO GET /api/datasources [%d]%s", ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (open; verify)" : "");
     return 0;
 }

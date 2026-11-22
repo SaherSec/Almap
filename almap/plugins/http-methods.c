@@ -15,7 +15,7 @@ int almap_script_run(AlScriptContext *ctx) {
     if (n > 0) {
         have_allow = ar_http_header(resp, "Allow", allow, sizeof(allow));
         if (have_allow) {
-            ar_out(ctx, "Allow: %s", allow);
+            ar_out(ctx, "http-methods: INFO Allow: %s", allow);
         }
     }
     n = ar_http_request(ctx, "TRACE", "/", NULL,
@@ -26,7 +26,7 @@ int almap_script_run(AlScriptContext *ctx) {
         ar_append(ctx, "%sTRACE enabled", (ctx->output_buf[0] != '\0') ?
                   "; " : "");
     } else if (ctx->output_buf[0] == '\0') {
-        ar_out(ctx, "methods: OPTIONS returned no Allow header");
+        ar_out(ctx, "http-methods: INFO methods: OPTIONS returned no Allow header");
     }
     return 0;
 }

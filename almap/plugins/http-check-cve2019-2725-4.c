@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "POST", "/_async/AsyncResponseService", NULL, NULL, NULL,
                         "text/xml", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2019-2725-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2019-2725-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: POST /_async/AsyncResponseService [%d] (CVE2019-2725; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2019-2725-4: INFO probe sent: POST /_async/AsyncResponseService [%d] (CVE2019-2725; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

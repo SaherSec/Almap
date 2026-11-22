@@ -31,7 +31,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "SMB brute: no null session in 5 attempts");
+        ar_out(ctx, "smb-brute-3: INFO SMB brute: no null session in 5 attempts");
     }
     return 0;
 }

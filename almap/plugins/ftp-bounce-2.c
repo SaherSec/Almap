@@ -12,7 +12,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ftp_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "FTP bounce: no FTP banner");
+        ar_out(ctx, "ftp-bounce-2: INFO FTP bounce: no FTP banner");
         return 0;
     }
     code = ar_ftp_login(fd, "anonymous", "anonymous@example.com",
@@ -23,9 +23,9 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     close(fd);
     if (code == 200) {
-        ar_out(ctx, "VULNERABLE: FTP PORT bounce accepted");
+        ar_out(ctx, "ftp-bounce-2: INFO matches probe for: FTP PORT bounce accepted");
     } else {
-        ar_out(ctx, "not vulnerable: FTP PORT bounce (code %d)", code);
+        ar_out(ctx, "ftp-bounce-2: INFO probe did not match: FTP PORT bounce (code %d)", code);
     }
     return 0;
 }

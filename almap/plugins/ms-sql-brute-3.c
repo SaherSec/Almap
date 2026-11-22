@@ -12,7 +12,7 @@ int almap_script_run(AlScriptContext *ctx) {
     for (i = 0; i < 5; i++) {
         int rc = ar_mssql_empty_login(ctx, msg, sizeof(msg));
         if (rc == 0) {
-            ar_out(ctx, "MSSQL brute: sa blank password accepted");
+            ar_out(ctx, "ms-sql-brute-3: INFO MSSQL brute: sa blank password accepted");
             found = 1;
             break;
         }
@@ -21,7 +21,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (!found) {
-        ar_out(ctx, "MSSQL brute: sa blank password rejected in 5 attempts");
+        ar_out(ctx, "ms-sql-brute-3: INFO MSSQL brute: sa blank password rejected in 5 attempts");
     }
     return 0;
 }

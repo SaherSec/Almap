@@ -20,11 +20,11 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, bind, sizeof(bind), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 7) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "ldap-rootdse: LDAP service not answering");
+        ar_out(ctx, "ldap-rootdse-4: INFO ldap-rootdse: LDAP service not answering");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "ldap-rootdse: LDAP responds (%d bytes, BindResponse 0x%02x)",
+    ar_out(ctx, "ldap-rootdse-4: INFO ldap-rootdse: LDAP responds (%d bytes, BindResponse 0x%02x)",
            n, resp[5]);
     return 0;
 }

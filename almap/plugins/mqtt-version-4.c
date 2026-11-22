@@ -19,11 +19,11 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, connect, sizeof(connect), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 4) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "mqtt-version: no response to MQTT 3.1.1 CONNECT");
+        ar_out(ctx, "mqtt-version-4: INFO mqtt-version: no response to MQTT 3.1.1 CONNECT");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "mqtt-version: broker %s MQTT 3.1.1 (rc=%d)",
+    ar_out(ctx, "mqtt-version-4: INFO mqtt-version: broker %s MQTT 3.1.1 (rc=%d)",
            (resp[3] == 1) ? "rejected proto level for" : "answered", resp[3]);
     return 0;
 }

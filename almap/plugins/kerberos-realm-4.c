@@ -11,10 +11,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "kerberos-realm-4: KDC not reachable on port %d", ctx->port);
+        ar_out(ctx, "kerberos-realm-4: INFO KDC not reachable on port %d", ctx->port);
         return 0;
     }
     close(fd);
-    ar_out(ctx, "kerberos-realm-4: KDC reachable on TCP %d (AS-REQ probing requires a realm)", ctx->port);
+    ar_out(ctx, "kerberos-realm-4: INFO KDC reachable on TCP %d (AS-REQ probing requires a realm)", ctx->port);
     return 0;
 }

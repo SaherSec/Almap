@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "VNC info: no connection");
+        ar_out(ctx, "vnc-info-3: INFO VNC info: no connection");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), 800);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "VNC info: no banner");
+        ar_out(ctx, "vnc-info-3: INFO VNC info: no banner");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "VNC info: %.200s", resp);
+    ar_out(ctx, "vnc-info-3: INFO VNC info: %.200s", resp);
     return 0;
 }

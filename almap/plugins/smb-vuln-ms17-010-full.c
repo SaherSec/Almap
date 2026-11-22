@@ -134,7 +134,7 @@ int almap_script_run(AlScriptContext *ctx) {
         d1 = ar_smb1_dialect(resp, n);
     }
     if (d1 > 5) {
-        ar_out(ctx, "smb-vuln-ms17-010-full: SMBv1 not offered "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO SMBv1 not offered "
                "(SMB2 dialect %s); MS17-010 not applicable",
                ar_smb2_dialect_name(d2));
         return 0;
@@ -143,7 +143,7 @@ int almap_script_run(AlScriptContext *ctx) {
     /* Open an anonymous SMB1 session (negotiate + session setup). */
     if (ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
                              lan, sizeof(lan)) != 0 || fd < 0) {
-        ar_out(ctx, "smb-vuln-ms17-010-full: SMBv1 %s offered but session "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO SMBv1 %s offered but session "
                "setup failed; cannot confirm MS17-010",
                ar_smb1_dialect_name(d1));
         return 0;
@@ -154,7 +154,7 @@ int almap_script_run(AlScriptContext *ctx) {
                                       &tid, ctx->timeout_ms);
     if (treestatus != 0) {
         close(fd);
-        ar_out(ctx, "smb-vuln-ms17-010-full: SMBv1 %s; IPC$ tree connect "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO SMBv1 %s; IPC$ tree connect "
                "denied (status 0x%08X); likely patched or hardened",
                ar_smb1_dialect_name(d1), (unsigned int)treestatus);
         if (os[0] != '\0') {
@@ -167,17 +167,17 @@ int almap_script_run(AlScriptContext *ctx) {
     close(fd);
 
     if (status == 0xC0000205u) {
-        ar_out(ctx, "VULNERABLE: MS17-010 EternalBlue (CVE-2017-0143) - "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO matches probe for: MS17-010 EternalBlue (CVE-2017-0143) - "
                "PeekNamedPipe returned STATUS_INSUFF_SERVER_RESOURCES");
     } else if (status == 0xC0000022u || status == 0xC0000008u) {
-        ar_out(ctx, "not vulnerable: MS17-010 (PeekNamedPipe status "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO probe did not match: MS17-010 (PeekNamedPipe status "
                "0x%08X; patched)", status);
     } else if (status == 0xFFFFFFFFu) {
-        ar_out(ctx, "potentially vulnerable: MS17-010 (SMBv1 %s, IPC$ "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO potentially matches probe for: MS17-010 (SMBv1 %s, IPC$ "
                "reachable; no PeekNamedPipe reply - verify manually)",
                ar_smb1_dialect_name(d1));
     } else {
-        ar_out(ctx, "MS17-010 inconclusive: SMBv1 %s, PeekNamedPipe status "
+        ar_out(ctx, "smb-vuln-ms17-010-full: INFO MS17-010 inconclusive: SMBv1 %s, PeekNamedPipe status "
                "0x%08X", ar_smb1_dialect_name(d1), status);
     }
     if (os[0] != '\0') {

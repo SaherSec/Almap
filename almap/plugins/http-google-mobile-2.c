@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "google mobile: no matching paths");
+        ar_out(ctx, "http-google-mobile-2: INFO google mobile: no matching paths");
     }
     return 0;
 }

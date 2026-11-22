@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "HTTP CSRF: no response");
+        ar_out(ctx, "http-csrf-2: INFO HTTP CSRF: no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "<form") &&
         !ar_contains_ci(body, "csrf") &&
         !ar_contains_ci(body, "token")) {
-        ar_out(ctx, "potentially vulnerable: form without CSRF token");
+        ar_out(ctx, "http-csrf-2: INFO potentially matches probe for: form without CSRF token");
     } else {
-        ar_out(ctx, "not vulnerable: no unprotected form found");
+        ar_out(ctx, "http-csrf-2: INFO probe did not match: no unprotected form found");
     }
     return 0;
 }

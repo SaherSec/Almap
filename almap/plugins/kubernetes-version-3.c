@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Kubernetes version: no matching paths");
+        ar_out(ctx, "kubernetes-version-3: INFO Kubernetes version: no matching paths");
     }
     return 0;
 }

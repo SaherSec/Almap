@@ -13,10 +13,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_smb1_negotiate(ctx, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "SMBv1 not answering (CVE-2017-0144 unlikely)");
+        ar_out(ctx, "smb-check-cve2017-0144-4: INFO SMBv1 not answering (CVE-2017-0144 unlikely)");
         return 0;
     }
-    ar_out(ctx, "SMBv1 negotiated: %s (CVE-2017-0144/MS17-010 surface; verify)",
+    ar_out(ctx, "smb-check-cve2017-0144-4: INFO SMBv1 negotiated: %s (CVE-2017-0144/MS17-010 surface; verify)",
            ar_smb1_dialect_name(ar_smb1_dialect(resp, n)));
     return 0;
 }

@@ -9,15 +9,15 @@ int almap_script_run(AlScriptContext *ctx) {
         return 1;
     }
     if (ar_tls_dh_bits(ctx, &bits, &group_len) != 0) {
-        ar_out(ctx, "TLS DH params: no handshake");
+        ar_out(ctx, "ssl-dh-params-2: INFO TLS DH params: no handshake");
         return 0;
     }
     if (bits <= 0) {
-        ar_out(ctx, "TLS DH params: no DHE parameters offered");
+        ar_out(ctx, "ssl-dh-params-2: INFO TLS DH params: no DHE parameters offered");
     } else if (bits < 2048) {
-        ar_out(ctx, "VULNERABLE: weak %d-bit DH parameters", bits);
+        ar_out(ctx, "ssl-dh-params-2: INFO matches probe for: weak %d-bit DH parameters", bits);
     } else {
-        ar_out(ctx, "TLS DH params: %d-bit (%u bytes)", bits, group_len);
+        ar_out(ctx, "ssl-dh-params-2: INFO TLS DH params: %d-bit (%u bytes)", bits, group_len);
     }
     return 0;
 }

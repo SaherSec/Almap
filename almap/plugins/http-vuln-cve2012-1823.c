@@ -13,13 +13,13 @@ int almap_script_run(AlScriptContext *ctx) {
     for (i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
         int n = ar_http_get(ctx, paths[i], resp, sizeof(resp));
         if (n > 0 && ar_contains_ci(ar_http_body(resp), "<?php")) {
-            ar_append(ctx, "%s%s", (found == 0) ? "VULNERABLE: " : ", ",
+            ar_append(ctx, "%s%s", (found == 0) ? "matches probe for: " : ", ",
                       paths[i]);
             found++;
         }
     }
     if (found == 0) {
-        ar_out(ctx, "not vulnerable: CVE-2012-1823 PHP-CGI source disclosure");
+        ar_out(ctx, "http-vuln-cve2012-1823: INFO probe did not match: CVE-2012-1823 PHP-CGI source disclosure");
     } else {
         ar_append(ctx, " (CVE-2012-1823 PHP-CGI source disclosure)");
     }

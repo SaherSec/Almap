@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "internal IP disclosure: no response");
+        ar_out(ctx, "http-internal-ip-disclosure-2: INFO internal IP disclosure: no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "10.") ||
         ar_contains_ci(body, "192.168.") ||
         ar_contains_ci(body, "172.16.")) {
-        ar_out(ctx, "potentially vulnerable: private IP address disclosed");
+        ar_out(ctx, "http-internal-ip-disclosure-2: INFO potentially matches probe for: private IP address disclosed");
     } else {
-        ar_out(ctx, "not vulnerable: no private IP disclosed");
+        ar_out(ctx, "http-internal-ip-disclosure-2: INFO probe did not match: no private IP disclosed");
     }
     return 0;
 }

@@ -15,13 +15,13 @@ int almap_script_run(AlScriptContext *ctx) {
                             sizeof(ar_tls_cbc_ciphers[0])),
                       &selver, &selcipher, 0, resp, sizeof(resp));
     if (rc == 1 && selver == 0x0300 && ar_tls_is_cbc(selcipher)) {
-        ar_out(ctx, "VULNERABLE: POODLE (SSLv3 CBC %s)",
+        ar_out(ctx, "ssl-poodle: INFO matches probe for: POODLE (SSLv3 CBC %s)",
                ar_tls_cipher_name(selcipher));
     } else if (rc == 1) {
-        ar_out(ctx, "not vulnerable: POODLE (selected %s/%s)",
+        ar_out(ctx, "ssl-poodle: INFO probe did not match: POODLE (selected %s/%s)",
                ar_tls_version_name(selver), ar_tls_cipher_name(selcipher));
     } else {
-        ar_out(ctx, "not vulnerable: SSLv3 not negotiated");
+        ar_out(ctx, "ssl-poodle: INFO probe did not match: SSLv3 not negotiated");
     }
     return 0;
 }

@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "vhosts: no responses");
+        ar_out(ctx, "http-vhosts-3: INFO vhosts: no responses");
     }
     return 0;
 }

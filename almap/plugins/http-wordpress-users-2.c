@@ -24,7 +24,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "WordPress users: no disclosure");
+        ar_out(ctx, "http-wordpress-users-2: INFO WordPress users: no disclosure");
     }
     return 0;
 }

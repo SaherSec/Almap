@@ -19,13 +19,13 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ssh_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "SSH algorithms: no SSH banner");
+        ar_out(ctx, "ssh2-enum-algos: INFO SSH algorithms: no SSH banner");
         return 0;
     }
     n = ar_ssh_get_kexinit(fd, kex, sizeof(kex), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "SSH algorithms: KEXINIT failed (%s)", banner);
+        ar_out(ctx, "ssh2-enum-algos: INFO SSH algorithms: KEXINIT failed (%s)", banner);
         return 0;
     }
     for (i = 0; i < 10; i++) {
@@ -39,7 +39,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (lines == 0) {
-        ar_out(ctx, "SSH algorithms: none disclosed");
+        ar_out(ctx, "ssh2-enum-algos: INFO SSH algorithms: none disclosed");
     }
     return 0;
 }

@@ -9,10 +9,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "PostgreSQL users: not reachable");
+        ar_out(ctx, "pgsql-users-3: INFO PostgreSQL users: not reachable");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "PostgreSQL users: service reachable on port %d", ctx->port);
+    ar_out(ctx, "pgsql-users-3: INFO PostgreSQL users: service reachable on port %d", ctx->port);
     return 0;
 }

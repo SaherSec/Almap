@@ -10,10 +10,10 @@ int almap_script_run(AlScriptContext *ctx) {
         return 1;
     }
     if (ar_pg_start(ctx, "postgres", "postgres", &ssl) < 0) {
-        ar_out(ctx, "pgsql-ssl-posture: not reachable");
+        ar_out(ctx, "pgsql-ssl-posture-4: INFO pgsql-ssl-posture: not reachable");
         return 0;
     }
-    ar_out(ctx, "PostgreSQL SSL: server %s SSL on startup",
+    ar_out(ctx, "pgsql-ssl-posture-4: INFO PostgreSQL SSL: server %s SSL on startup",
            ssl ? "OFFERS" : "DOES NOT offer");
     return 0;
 }

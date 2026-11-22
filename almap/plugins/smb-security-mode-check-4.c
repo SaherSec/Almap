@@ -13,11 +13,11 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_smb2_negotiate(ctx, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "SMB security mode: no SMB2 response");
+        ar_out(ctx, "smb-security-mode-check-4: INFO SMB security mode: no SMB2 response");
         return 0;
     }
     mode = ar_smb2_security_mode(resp, n);
-    ar_out(ctx, "SMB2 security mode 0x%02x (signing %s)",
+    ar_out(ctx, "smb-security-mode-check-4: INFO SMB2 security mode 0x%02x (signing %s)",
            mode, (mode & 0x02) ? "required" : "enabled/optional");
     return 0;
 }

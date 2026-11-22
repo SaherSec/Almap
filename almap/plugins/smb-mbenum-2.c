@@ -16,10 +16,10 @@ int almap_script_run(AlScriptContext *ctx) {
         mode = ar_smb2_security_mode(resp, n);
     }
     if (dialect == 0xFFFF) {
-        ar_out(ctx, "SMB mbenum: SMB2 not offered");
+        ar_out(ctx, "smb-mbenum-2: INFO SMB mbenum: SMB2 not offered");
         return 0;
     }
-    ar_out(ctx, "SMB mbenum: %s security 0x%02x",
+    ar_out(ctx, "smb-mbenum-2: INFO SMB mbenum: %s security 0x%02x",
            ar_smb2_dialect_name(dialect), mode);
     return 0;
 }

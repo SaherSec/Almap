@@ -193,7 +193,7 @@ int almap_script_run(AlScriptContext *ctx) {
         int rc = hb_raw_probe(ctx, versions[i], resp, sizeof(resp), &leaked);
         if (rc == 1) {
             ar_out(ctx,
-                   "VULNERABLE: OpenSSL Heartbleed (CVE-2014-0160) - "
+                   "ssl-heartbleed-full: INFO matches probe for: OpenSSL Heartbleed (CVE-2014-0160) - "
                    "server leaked %ld bytes via %s HeartbeatResponse",
                    leaked, ar_tls_version_name(versions[i]));
             if (tls_ok) {
@@ -208,14 +208,14 @@ int almap_script_run(AlScriptContext *ctx) {
 
     if (got_hello || tls_ok) {
         if (tls_ok) {
-            ar_out(ctx, "not vulnerable: OpenSSL Heartbleed "
+            ar_out(ctx, "ssl-heartbleed-full: INFO probe did not match: OpenSSL Heartbleed "
                    "(handshake: %s/%s; heartbeat not honored)", ver, cipher);
         } else {
-            ar_out(ctx, "not vulnerable: OpenSSL Heartbleed "
+            ar_out(ctx, "ssl-heartbleed-full: INFO probe did not match: OpenSSL Heartbleed "
                    "(TLS ServerHello seen; heartbeat not honored)");
         }
     } else {
-        ar_out(ctx, "Heartbleed: no TLS handshake on port %d", ctx->port);
+        ar_out(ctx, "ssl-heartbleed-full: INFO Heartbleed: no TLS handshake on port %d", ctx->port);
     }
     return 0;
 }

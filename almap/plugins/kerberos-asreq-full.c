@@ -371,7 +371,7 @@ int almap_script_run(AlScriptContext *ctx) {
     reqlen = build_as_req(KRB_DEF_CNAME, KRB_DEF_REALM, nonce, req,
                           sizeof(req));
     if (reqlen == 0) {
-        ar_out(ctx, "kerberos-asreq-full: failed to encode AS-REQ");
+        ar_out(ctx, "kerberos-asreq-full: INFO failed to encode AS-REQ");
         return 0;
     }
     /* TCP Kerberos: 4-byte big-endian length prefix. */
@@ -383,13 +383,13 @@ int almap_script_run(AlScriptContext *ctx) {
 
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "kerberos-asreq-full: KDC not reachable on TCP %d",
+        ar_out(ctx, "kerberos-asreq-full: INFO KDC not reachable on TCP %d",
                ctx->port);
         return 0;
     }
     if (as_send_all(fd, framed, reqlen + 4, ctx->timeout_ms) != 0) {
         close(fd);
-        ar_out(ctx, "kerberos-asreq-full: send failed");
+        ar_out(ctx, "kerberos-asreq-full: INFO send failed");
         return 0;
     }
     /* Read the 4-byte reply length, then the body. */
@@ -398,7 +398,7 @@ int almap_script_run(AlScriptContext *ctx) {
         unsigned int blen;
         if (as_recv_exact(fd, lh, 4, ctx->timeout_ms) != 0) {
             close(fd);
-            ar_out(ctx, "kerberos-asreq-full: no AS-REP/KRB-ERROR "
+            ar_out(ctx, "kerberos-asreq-full: INFO no AS-REP/KRB-ERROR "
                    "(realm=%s likely not %s)", KRB_DEF_REALM, "this KDC's");
             return 0;
         }
@@ -406,13 +406,13 @@ int almap_script_run(AlScriptContext *ctx) {
                ((unsigned int)lh[2] << 8) | lh[3];
         if (blen == 0 || blen > sizeof(resp)) {
             close(fd);
-            ar_out(ctx, "kerberos-asreq-full: oversized reply (%u bytes)",
+            ar_out(ctx, "kerberos-asreq-full: INFO oversized reply (%u bytes)",
                    blen);
             return 0;
         }
         if (as_recv_exact(fd, resp, blen, ctx->timeout_ms) != 0) {
             close(fd);
-            ar_out(ctx, "kerberos-asreq-full: truncated reply");
+            ar_out(ctx, "kerberos-asreq-full: INFO truncated reply");
             return 0;
         }
         n = (int)blen;
@@ -420,17 +420,17 @@ int almap_script_run(AlScriptContext *ctx) {
     close(fd);
 
     if (parse_reply(resp, n, &is_rep, &errcode) != 0) {
-        ar_out(ctx, "kerberos-asreq-full: KDC reachable, unrecognized reply "
+        ar_out(ctx, "kerberos-asreq-full: INFO KDC reachable, unrecognized reply "
                "(%d bytes)", n);
         return 0;
     }
     if (is_rep) {
-        ar_out(ctx, "kerberos-asreq-full: AS-REP received for %s@%s "
+        ar_out(ctx, "kerberos-asreq-full: INFO AS-REP received for %s@%s "
                "- NO pre-auth required (AS-REP roastable)",
                KRB_DEF_CNAME, KRB_DEF_REALM);
         return 0;
     }
-    ar_out(ctx, "kerberos-asreq-full: KRB-ERROR %d - %s (probe %s@%s)",
+    ar_out(ctx, "kerberos-asreq-full: INFO KRB-ERROR %d - %s (probe %s@%s)",
            errcode, krb_err_name(errcode), KRB_DEF_CNAME, KRB_DEF_REALM);
     return 0;
 }

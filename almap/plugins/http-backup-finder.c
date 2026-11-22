@@ -28,7 +28,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "backup files: none found");
+        ar_out(ctx, "http-backup-finder: INFO backup files: none found");
     }
     return 0;
 }

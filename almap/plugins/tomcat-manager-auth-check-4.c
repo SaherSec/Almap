@@ -20,11 +20,11 @@ int almap_script_run(AlScriptContext *ctx) {
             continue;
         }
         if (ar_http_status(resp) != 401 && ar_http_status(resp) != 403) {
-            ar_out(ctx, "tomcat-manager-auth-check-4: %s:%s -> HTTP %d (not rejected; verify)",
+            ar_out(ctx, "tomcat-manager-auth-check-4: INFO %s:%s -> HTTP %d (not rejected; verify)",
                    words[i], words[i], ar_http_status(resp));
             return 0;
         }
     }
-    ar_out(ctx, "tomcat-manager-auth-check-4: all 5 default pairs rejected on /manager/html");
+    ar_out(ctx, "tomcat-manager-auth-check-4: INFO all 5 default pairs rejected on /manager/html");
     return 0;
 }

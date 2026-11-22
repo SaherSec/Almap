@@ -9,10 +9,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "Oracle TNS info: not reachable");
+        ar_out(ctx, "oracle-tns-info-3: INFO Oracle TNS info: not reachable");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "Oracle TNS info: service reachable on port %d", ctx->port);
+    ar_out(ctx, "oracle-tns-info-3: INFO Oracle TNS info: service reachable on port %d", ctx->port);
     return 0;
 }

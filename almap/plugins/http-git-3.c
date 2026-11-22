@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "git: no matching paths");
+        ar_out(ctx, "http-git-3: INFO git: no matching paths");
     }
     return 0;
 }

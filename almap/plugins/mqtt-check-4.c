@@ -17,17 +17,17 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "mqtt-check: broker not reachable");
+        ar_out(ctx, "mqtt-check-4: INFO mqtt-check: broker not reachable");
         return 0;
     }
     if (as_send_all(fd, connect, sizeof(connect), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 4) {
         close(fd);
-        ar_out(ctx, "mqtt-check: no CONNACK");
+        ar_out(ctx, "mqtt-check-4: INFO mqtt-check: no CONNACK");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "mqtt-check: CONNACK type=0x%02x rc=%d%s", resp[0], resp[3],
+    ar_out(ctx, "mqtt-check-4: INFO mqtt-check: CONNACK type=0x%02x rc=%d%s", resp[0], resp[3],
            (resp[0] == 0x20 && resp[3] == 0) ? " (accepted, no auth; verify)" : "");
     return 0;
 }

@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Kubernetes pods: no matching paths");
+        ar_out(ctx, "kubernetes-pods-3: INFO Kubernetes pods: no matching paths");
     }
     return 0;
 }

@@ -16,10 +16,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = as_udp_exchange(ctx, msearch, sizeof(msearch) - 1, resp, sizeof(resp),
                         ctx->timeout_ms);
     if (n <= 0) {
-        ar_out(ctx, "upnp-ssdp: no SSDP reply on UDP %d", ctx->port);
+        ar_out(ctx, "upnp-ssdp-4: INFO upnp-ssdp: no SSDP reply on UDP %d", ctx->port);
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "upnp-ssdp: %.220s", resp);
+    ar_out(ctx, "upnp-ssdp-4: INFO upnp-ssdp: %.220s", resp);
     return 0;
 }

@@ -12,7 +12,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     got = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (got <= 0) {
-        ar_out(ctx, "http-headers: no response");
+        ar_out(ctx, "http-headers: INFO no response");
         return 0;
     }
     end = strstr(resp, "\r\n\r\n");

@@ -24,7 +24,7 @@ int almap_script_run(AlScriptContext *ctx) {
         found++;
     }
     if (found == 0) {
-        ar_out(ctx, "WebDAV: not enabled");
+        ar_out(ctx, "http-webdav-scan-2: INFO WebDAV: not enabled");
     }
     return 0;
 }

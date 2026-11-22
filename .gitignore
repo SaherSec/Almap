@@ -14,3 +14,6 @@ almap-opencode/
 *.o
 /almap/almap
 /almap/dist/
+
+# Python bytecode
+__pycache__/

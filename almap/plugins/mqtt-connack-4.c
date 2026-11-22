@@ -23,11 +23,11 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, connect, sizeof(connect), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 4) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "mqtt-connack: no response");
+        ar_out(ctx, "mqtt-connack-4: INFO mqtt-connack: no response");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "mqtt-connack: rc=%d (%s)", resp[3],
+    ar_out(ctx, "mqtt-connack-4: INFO mqtt-connack: rc=%d (%s)", resp[3],
            (resp[3] < 6) ? rc[resp[3]] : "unknown");
     return 0;
 }

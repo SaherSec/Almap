@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
                                lan, sizeof(lan));
     if (fd >= 0) {
         close(fd);
-        ar_out(ctx, "SMB domains: null session accepted; full enumeration "
+        ar_out(ctx, "smb-enum-domains-3: INFO SMB domains: null session accepted; full enumeration "
                "requires credentials");
     } else {
-        ar_out(ctx, "SMB domains: null session denied");
+        ar_out(ctx, "smb-enum-domains-3: INFO SMB domains: null session denied");
     }
     return 0;
 }

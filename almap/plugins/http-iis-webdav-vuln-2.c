@@ -12,9 +12,9 @@ int almap_script_run(AlScriptContext *ctx) {
                         resp, sizeof(resp));
     if (n > 0 && (ar_contains_ci(resp, "DAV:") ||
                   ar_contains_ci(resp, "PROPFIND"))) {
-        ar_out(ctx, "potentially vulnerable: IIS WebDAV enabled");
+        ar_out(ctx, "http-iis-webdav-vuln-2: INFO potentially matches probe for: IIS WebDAV enabled");
     } else {
-        ar_out(ctx, "not vulnerable: IIS WebDAV not detected (HTTP %d)",
+        ar_out(ctx, "http-iis-webdav-vuln-2: INFO probe did not match: IIS WebDAV probe did not match (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

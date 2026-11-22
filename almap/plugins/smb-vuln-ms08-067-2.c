@@ -18,7 +18,7 @@ int almap_script_run(AlScriptContext *ctx) {
         dialect = ar_smb1_dialect(resp, n);
     }
     if (n < 0 || dialect > 5) {
-        ar_out(ctx, "MS08-067: SMBv1 not offered");
+        ar_out(ctx, "smb-vuln-ms08-067-2: INFO MS08-067: SMBv1 not offered");
         return 0;
     }
     (void)ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
@@ -26,7 +26,7 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd >= 0) {
         close(fd);
     }
-    ar_out(ctx, "potentially vulnerable: MS08-067 (SMBv1 %s; "
+    ar_out(ctx, "smb-vuln-ms08-067-2: INFO potentially matches probe for: MS08-067 (SMBv1 %s; "
            "patch level not confirmed)", ar_smb1_dialect_name(dialect));
     return 0;
 }

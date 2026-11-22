@@ -17,7 +17,7 @@ int almap_script_run(AlScriptContext *ctx) {
                                sizeof(salt));
         int rc;
         if (fd < 0) {
-            ar_out(ctx, "MySQL empty password: no handshake");
+            ar_out(ctx, "mysql-empty-password-2: INFO MySQL empty password: no handshake");
             return 0;
         }
         rc = ar_mysql_login(fd, users[i], "", 1, ctx->timeout_ms,
@@ -31,7 +31,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "MySQL empty password: none accepted");
+        ar_out(ctx, "mysql-empty-password-2: INFO MySQL empty password: none accepted");
     }
     return 0;
 }

@@ -13,13 +13,13 @@ int almap_script_run(AlScriptContext *ctx) {
     for (i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
         int n = ar_http_get(ctx, paths[i], resp, sizeof(resp));
         if (n > 0 && ar_contains_ci(ar_http_body(resp), "root:")) {
-            ar_append(ctx, "%s%s", (found == 0) ? "VULNERABLE: " : ", ",
+            ar_append(ctx, "%s%s", (found == 0) ? "matches probe for: " : ", ",
                       paths[i]);
             found++;
         }
     }
     if (found == 0) {
-        ar_out(ctx, "not vulnerable: /etc/passwd disclosure");
+        ar_out(ctx, "http-passwd-2: INFO probe did not match: /etc/passwd disclosure");
     } else {
         ar_append(ctx, " (/etc/passwd disclosure)");
     }

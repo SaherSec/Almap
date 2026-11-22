@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "SMTP commands: no connection");
+        ar_out(ctx, "smtp-commands-3: INFO SMTP commands: no connection");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), 800);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "SMTP commands: no banner");
+        ar_out(ctx, "smtp-commands-3: INFO SMTP commands: no banner");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "SMTP commands: %.200s", resp);
+    ar_out(ctx, "smtp-commands-3: INFO SMTP commands: %.200s", resp);
     return 0;
 }

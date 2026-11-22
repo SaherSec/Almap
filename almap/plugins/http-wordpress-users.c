@@ -22,7 +22,7 @@ static void ar_wp_users_from_json(AlScriptContext *ctx, const char *body) {
         p = (e != NULL) ? e + 1 : p + 8;
     }
     if (count == 0) {
-        ar_out(ctx, "WordPress users: none disclosed");
+        ar_out(ctx, "http-wordpress-users: INFO WordPress users: none disclosed");
     }
 }
 
@@ -38,7 +38,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/wp-json/wp/v2/users", resp, sizeof(resp));
     if (n > 0 && ar_http_status(resp) == 200) {
-        ar_out(ctx, "WordPress users: ");
+        ar_out(ctx, "http-wordpress-users: INFO WordPress users: ");
         body = ar_http_body(resp);
         ar_wp_users_from_json(ctx, body);
         return 0;
@@ -57,7 +57,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (ctx->output_buf[0] == '\0') {
-        ar_out(ctx, "WordPress users: none disclosed");
+        ar_out(ctx, "http-wordpress-users: INFO WordPress users: none disclosed");
     }
     return 0;
 }

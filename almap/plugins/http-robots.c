@@ -14,7 +14,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     if (ar_http_get(ctx, "/robots.txt", resp, sizeof(resp)) <= 0 ||
         ar_http_status(resp) == 404) {
-        ar_out(ctx, "robots.txt: not found");
+        ar_out(ctx, "http-robots: INFO robots.txt: not found");
         return 0;
     }
     (void)snprintf(robots, sizeof(robots), "%s", ar_http_body(resp));
@@ -57,7 +57,7 @@ int almap_script_run(AlScriptContext *ctx) {
         p = e + 1;
     }
     if (found == 0) {
-        ar_out(ctx, "robots.txt: no accessible Disallow entries found");
+        ar_out(ctx, "http-robots: INFO robots.txt: no accessible Disallow entries found");
     }
     return 0;
 }

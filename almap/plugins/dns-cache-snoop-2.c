@@ -23,7 +23,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "DNS cache snoop: no cached answers");
+        ar_out(ctx, "dns-cache-snoop-2: INFO DNS cache snoop: no cached answers");
     }
     return 0;
 }

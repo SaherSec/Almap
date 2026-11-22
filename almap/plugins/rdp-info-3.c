@@ -9,10 +9,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "RDP info: not reachable");
+        ar_out(ctx, "rdp-info-3: INFO RDP info: not reachable");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "RDP info: service reachable on port %d", ctx->port);
+    ar_out(ctx, "rdp-info-3: INFO RDP info: service reachable on port %d", ctx->port);
     return 0;
 }

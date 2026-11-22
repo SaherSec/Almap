@@ -14,18 +14,18 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "redis-vuln-cve2022-0543-5: TCP %d not reachable", ctx->port);
+        ar_out(ctx, "redis-vuln-cve2022-0543-5: INFO TCP %d not reachable", ctx->port);
         return 0;
     }
     if (as_send_all(fd, "INFO server\r\n", 13, ctx->timeout_ms) != 0) {
         close(fd);
-        ar_out(ctx, "redis-vuln-cve2022-0543-5: send failed");
+        ar_out(ctx, "redis-vuln-cve2022-0543-5: INFO send failed");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), ctx->timeout_ms);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "redis-vuln-cve2022-0543-5: no INFO reply");
+        ar_out(ctx, "redis-vuln-cve2022-0543-5: INFO no INFO reply");
         return 0;
     }
     ar_clean(resp);
@@ -35,7 +35,7 @@ int almap_script_run(AlScriptContext *ctx) {
         if (e != NULL) {
             *e = '\0';
         }
-        ar_out(ctx, "redis-vuln-cve2022-0543-5: %s (verify patch level)", p);
+        ar_out(ctx, "redis-vuln-cve2022-0543-5: INFO %s (verify patch level)", p);
     } else {
         ar_out(ctx, "redis-vuln-cve2022-0543-5: INFO reply did not expose version");
     }

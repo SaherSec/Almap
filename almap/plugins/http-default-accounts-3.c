@@ -28,7 +28,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "HTTP default accounts: none accepted");
+        ar_out(ctx, "http-default-accounts-3: INFO HTTP default accounts: none accepted");
     }
     return 0;
 }

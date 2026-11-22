@@ -21,7 +21,7 @@ int almap_script_run(AlScriptContext *ctx) {
     as_ip_text(ctx->target_ip, ip, sizeof(ip));
     if (ar_smb1_open_session(ctx, &fd, &uid, os, sizeof(os),
                              lan, sizeof(lan)) != 0 || fd < 0) {
-        ar_out(ctx, "SMB shares: SMBv1 negotiation failed");
+        ar_out(ctx, "smb-enum-shares: INFO SMB shares: SMBv1 negotiation failed");
         return 0;
     }
     for (i = 0; i < sizeof(shares) / sizeof(shares[0]); i++) {
@@ -36,7 +36,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     close(fd);
     if (found == 0) {
-        ar_out(ctx, "SMB shares: none accessible via null session");
+        ar_out(ctx, "smb-enum-shares: INFO SMB shares: none accessible via null session");
     }
     return 0;
 }

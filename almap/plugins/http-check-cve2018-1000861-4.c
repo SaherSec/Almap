@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/securityRealm/user/admin/descriptorByName/org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript/checkScript", NULL, NULL, NULL,
                         NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-check-cve2018-1000861-4: no HTTP response");
+        ar_out(ctx, "http-check-cve2018-1000861-4: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "probe sent: GET /securityRealm/user/admin/descriptorB... [%d] (CVE2018-1000861; verify out-of-band)",
+    ar_out(ctx, "http-check-cve2018-1000861-4: INFO probe sent: GET /securityRealm/user/admin/descriptorB... [%d] (CVE2018-1000861; verify out-of-band)",
            ar_http_status(resp));
     return 0;
 }

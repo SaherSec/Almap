@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "backup files: no matching paths");
+        ar_out(ctx, "http-backup-finder-2: INFO backup files: no matching paths");
     }
     return 0;
 }

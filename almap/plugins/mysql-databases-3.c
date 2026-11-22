@@ -9,10 +9,10 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "MySQL databases: not reachable");
+        ar_out(ctx, "mysql-databases-3: INFO MySQL databases: not reachable");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "MySQL databases: service reachable on port %d", ctx->port);
+    ar_out(ctx, "mysql-databases-3: INFO MySQL databases: service reachable on port %d", ctx->port);
     return 0;
 }

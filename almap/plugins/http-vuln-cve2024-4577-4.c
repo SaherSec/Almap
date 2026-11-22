@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/php-cgi/php-cgi.exe?%add+allow_url_include%3d1+%add+auto_prepend_file%3dphp://input", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2024-4577-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2024-4577-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "PHP")) {
-        ar_out(ctx, "VULNERABLE: /php-cgi/php-cgi.exe?%add+allow_url_include%3d1+%add+auto_prepend_file%3dphp://input [%d] (CVE-2024-4577)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2024-4577-4: INFO matches probe for: /php-cgi/php-cgi.exe?%add+allow_url_include%3d1+%add+auto_prepend_file%3dphp://input [%d] (CVE-2024-4577)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2024-4577 (/php-cgi/php-cgi.exe?%add+allow_url_include%3d1+%add+auto_prepend_file%3dphp://input [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2024-4577-4: INFO probe did not match: CVE-2024-4577 (/php-cgi/php-cgi.exe?%add+allow_url_include%3d1+%add+auto_prepend_file%3dphp://input [%d])", ar_http_status(resp));
     }
     return 0;
 }

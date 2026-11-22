@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/app/rest/server", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2023-42793-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2023-42793-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "TeamCity")) {
-        ar_out(ctx, "VULNERABLE: /app/rest/server [%d] (CVE-2023-42793)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2023-42793-4: INFO matches probe for: /app/rest/server [%d] (CVE-2023-42793)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2023-42793 (/app/rest/server [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2023-42793-4: INFO probe did not match: CVE-2023-42793 (/app/rest/server [%d])", ar_http_status(resp));
     }
     return 0;
 }

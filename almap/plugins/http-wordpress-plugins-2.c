@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "WordPress plugins: no matching paths");
+        ar_out(ctx, "http-wordpress-plugins-2: INFO WordPress plugins: no matching paths");
     }
     return 0;
 }

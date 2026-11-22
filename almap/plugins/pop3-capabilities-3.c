@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = as_connect(ctx);
     if (fd < 0) {
-        ar_out(ctx, "POP3 capabilities: no connection");
+        ar_out(ctx, "pop3-capabilities-3: INFO POP3 capabilities: no connection");
         return 0;
     }
     n = as_recv_all(fd, resp, sizeof(resp), 800);
     close(fd);
     if (n <= 0) {
-        ar_out(ctx, "POP3 capabilities: no banner");
+        ar_out(ctx, "pop3-capabilities-3: INFO POP3 capabilities: no banner");
         return 0;
     }
     ar_clean(resp);
-    ar_out(ctx, "POP3 capabilities: %.200s", resp);
+    ar_out(ctx, "pop3-capabilities-3: INFO POP3 capabilities: %.200s", resp);
     return 0;
 }

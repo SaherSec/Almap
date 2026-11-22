@@ -11,13 +11,13 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/index.php", NULL, NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2019-11043-4: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2019-11043-4: INFO no HTTP response");
         return 0;
     }
     if (ar_contains_ci(resp, "PHP")) {
-        ar_out(ctx, "VULNERABLE: /index.php [%d] (CVE-2019-11043)", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2019-11043-4: INFO matches probe for: /index.php [%d] (CVE-2019-11043)", ar_http_status(resp));
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2019-11043 (/index.php [%d])", ar_http_status(resp));
+        ar_out(ctx, "http-vuln-cve2019-11043-4: INFO probe did not match: CVE-2019-11043 (/index.php [%d])", ar_http_status(resp));
     }
     return 0;
 }

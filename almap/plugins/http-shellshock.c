@@ -24,10 +24,10 @@ int almap_script_run(AlScriptContext *ctx) {
         body = ar_http_body(resp);
         if (strstr(body, "VULNERABLE") != NULL ||
             strstr(resp, "VULNERABLE") != NULL) {
-            ar_out(ctx, "VULNERABLE: Shellshock CVE-2014-6271 at %s", paths[i]);
+            ar_out(ctx, "http-shellshock: INFO matches probe for: Shellshock CVE-2014-6271 at %s", paths[i]);
             return 0;
         }
     }
-    ar_out(ctx, "not vulnerable: Shellshock CVE-2014-6271 not confirmed");
+    ar_out(ctx, "http-shellshock: INFO probe did not match: Shellshock CVE-2014-6271 not confirmed");
     return 0;
 }

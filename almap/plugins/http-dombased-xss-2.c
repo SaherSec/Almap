@@ -11,16 +11,16 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "DOM XSS: no response");
+        ar_out(ctx, "http-dombased-xss-2: INFO DOM XSS: no response");
         return 0;
     }
     body = ar_http_body(resp);
     if (ar_contains_ci(body, "document.write") ||
         ar_contains_ci(body, "innerhtml") ||
         ar_contains_ci(body, "location.hash")) {
-        ar_out(ctx, "potentially vulnerable: DOM XSS sink detected");
+        ar_out(ctx, "http-dombased-xss-2: INFO potentially matches probe for: DOM XSS sink probe matched");
     } else {
-        ar_out(ctx, "not vulnerable: no DOM XSS sink found");
+        ar_out(ctx, "http-dombased-xss-2: INFO probe did not match: no DOM XSS sink found");
     }
     return 0;
 }

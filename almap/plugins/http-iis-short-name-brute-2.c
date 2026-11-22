@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "IIS short names: no matching paths");
+        ar_out(ctx, "http-iis-short-name-brute-2: INFO IIS short names: no matching paths");
     }
     return 0;
 }

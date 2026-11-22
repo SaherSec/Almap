@@ -12,7 +12,7 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     fd = ar_ftp_open(ctx, banner, sizeof(banner));
     if (fd < 0) {
-        ar_out(ctx, "FTP anon: no FTP banner");
+        ar_out(ctx, "ftp-anon: INFO FTP anon: no FTP banner");
         return 0;
     }
     code = ar_ftp_login(fd, "anonymous", "anonymous@example.com",
@@ -23,9 +23,9 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     close(fd);
     if (code == 230) {
-        ar_out(ctx, "FTP anonymous login: allowed (%s)", banner);
+        ar_out(ctx, "ftp-anon: INFO FTP anonymous login: allowed (%s)", banner);
     } else {
-        ar_out(ctx, "FTP anonymous login: denied (code %d)", code);
+        ar_out(ctx, "ftp-anon: INFO FTP anonymous login: denied (code %d)", code);
     }
     return 0;
 }

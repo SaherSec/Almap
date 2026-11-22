@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
                         "application/json", resp, sizeof(resp));
     code = ar_http_status(resp);
     if (n > 0 && (code == 200 || ar_contains_ci(resp, "token"))) {
-        ar_out(ctx, "potentially vulnerable: CVE-2022-1388 F5 "
+        ar_out(ctx, "http-vuln-cve2022-1388-3: INFO potentially matches probe for: CVE-2022-1388 F5 "
                "iControl REST (HTTP %d)", code);
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2022-1388 (HTTP %d)", code);
+        ar_out(ctx, "http-vuln-cve2022-1388-3: INFO probe did not match: CVE-2022-1388 (HTTP %d)", code);
     }
     return 0;
 }

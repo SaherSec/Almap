@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "CVE-2021-26855: no matching paths");
+        ar_out(ctx, "http-vuln-cve2021-26855-3: INFO CVE-2021-26855: no matching paths");
     }
     return 0;
 }

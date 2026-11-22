@@ -13,7 +13,7 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_get(ctx, "/", resp, sizeof(resp));
     if (n > 0 && ar_http_header(resp, "X-Powered-By", val, sizeof(val))) {
         if (ar_contains_ci(val, "PHP")) {
-            ar_out(ctx, "PHP version: %s", val);
+            ar_out(ctx, "http-php-version: INFO PHP version: %s", val);
             return 0;
         }
     }
@@ -23,7 +23,7 @@ int almap_script_run(AlScriptContext *ctx) {
         body = ar_http_body(resp);
         if (sscanf(body, "PHP Version %255s", val) == 1 ||
             sscanf(body, "%*[^P]PHP Version %255s", val) == 1) {
-            ar_out(ctx, "PHP version: %s", val);
+            ar_out(ctx, "http-php-version: INFO PHP version: %s", val);
             return 0;
         }
     }
@@ -38,12 +38,12 @@ int almap_script_run(AlScriptContext *ctx) {
                     p++;
                 }
                 if (sscanf(p, "%255s", val) == 1) {
-                    ar_out(ctx, "PHP version: %s", val);
+                    ar_out(ctx, "http-php-version: INFO PHP version: %s", val);
                     return 0;
                 }
             }
         }
     }
-    ar_out(ctx, "PHP version: not disclosed");
+    ar_out(ctx, "http-php-version: INFO PHP version: not disclosed");
     return 0;
 }

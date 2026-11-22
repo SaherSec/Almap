@@ -12,12 +12,12 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     rc = ar_tls_ccs_test(ctx, resp, sizeof(resp), &ver, &cipher);
     if (rc == 1) {
-        ar_out(ctx, "VULNERABLE: TLS CCS injection (%s, %s)",
+        ar_out(ctx, "ssl-ccs-injection-2: INFO matches probe for: TLS CCS injection (%s, %s)",
                ar_tls_version_name(ver), ar_tls_cipher_name(cipher));
     } else if (rc == 0) {
-        ar_out(ctx, "not vulnerable: TLS CCS injection");
+        ar_out(ctx, "ssl-ccs-injection-2: INFO probe did not match: TLS CCS injection");
     } else {
-        ar_out(ctx, "TLS CCS injection: no handshake");
+        ar_out(ctx, "ssl-ccs-injection-2: INFO TLS CCS injection: no handshake");
     }
     return 0;
 }

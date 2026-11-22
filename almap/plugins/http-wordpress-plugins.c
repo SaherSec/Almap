@@ -34,7 +34,7 @@ int almap_script_run(AlScriptContext *ctx) {
         found++;
     }
     if (found == 0) {
-        ar_out(ctx, "WordPress plugins: none detected");
+        ar_out(ctx, "http-wordpress-plugins: INFO WordPress plugins: none probe matched");
     }
     return 0;
 }

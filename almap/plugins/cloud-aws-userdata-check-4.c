@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/latest/user-data/", "169.254.169.254",
                         NULL, NULL, NULL, resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "cloud-aws-userdata-check: no response from metadata endpoint");
+        ar_out(ctx, "cloud-aws-userdata-check-4: INFO cloud-aws-userdata-check: no response from metadata endpoint");
         return 0;
     }
-    ar_out(ctx, "cloud-aws-userdata-check: GET /latest/user-data/ [%d]%s",
+    ar_out(ctx, "cloud-aws-userdata-check-4: INFO cloud-aws-userdata-check: GET /latest/user-data/ [%d]%s",
            ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (user-data EXPOSED; verify)" : "");
     return 0;

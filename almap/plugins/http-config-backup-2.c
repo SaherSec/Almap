@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "config backups: no matching paths");
+        ar_out(ctx, "http-config-backup-2: INFO config backups: no matching paths");
     }
     return 0;
 }

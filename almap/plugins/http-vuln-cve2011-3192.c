@@ -21,16 +21,16 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/", NULL, range, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "CVE-2011-3192: no response");
+        ar_out(ctx, "http-vuln-cve2011-3192: INFO CVE-2011-3192: no response");
         return 0;
     }
     (void)ar_http_header(resp, "Server", server, sizeof(server));
     if (ar_http_status(resp) == 206 &&
         (ar_http_header(resp, "Content-Range", server, sizeof(server)) ||
          ar_contains_ci(resp, "multipart/byteranges"))) {
-        ar_out(ctx, "VULNERABLE: Apache Range header DoS CVE-2011-3192 (HTTP 206)");
+        ar_out(ctx, "http-vuln-cve2011-3192: INFO matches probe for: Apache Range header DoS CVE-2011-3192 (HTTP 206)");
     } else {
-        ar_out(ctx, "not vulnerable: CVE-2011-3192 (HTTP %d)",
+        ar_out(ctx, "http-vuln-cve2011-3192: INFO probe did not match: CVE-2011-3192 (HTTP %d)",
                ar_http_status(resp));
     }
     return 0;

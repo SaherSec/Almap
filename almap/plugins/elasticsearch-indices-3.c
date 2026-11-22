@@ -22,7 +22,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "Elasticsearch indices: no matching paths");
+        ar_out(ctx, "elasticsearch-indices-3: INFO Elasticsearch indices: no matching paths");
     }
     return 0;
 }

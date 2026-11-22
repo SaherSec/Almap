@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "PUT", "/latest/api/token", "169.254.169.254", "X-aws-ec2-metadata-token-ttl-seconds: 21600\\r\\n", NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "cloud-aws-imdsv2-token-4: no response from metadata endpoint");
+        ar_out(ctx, "cloud-aws-imdsv2-token-4: INFO no response from metadata endpoint");
         return 0;
     }
-    ar_out(ctx, "cloud-aws-imdsv2-token-4: PUT /latest/api/token [%d]%s", ar_http_status(resp),
+    ar_out(ctx, "cloud-aws-imdsv2-token-4: INFO PUT /latest/api/token [%d]%s", ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (metadata EXPOSED; verify)" : "");
     return 0;
 }

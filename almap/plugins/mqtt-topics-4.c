@@ -22,17 +22,17 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, connect, sizeof(connect), ctx->timeout_ms) != 0 ||
         as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms) < 4) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "mqtt-topics: no CONNACK");
+        ar_out(ctx, "mqtt-topics-4: INFO mqtt-topics: no CONNACK");
         return 0;
     }
     if (as_send_all(fd, sub, sizeof(sub), ctx->timeout_ms) == 0 &&
         as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms) >= 4 &&
         resp[0] == 0x90) {
         close(fd);
-        ar_out(ctx, "mqtt-topics: SUBACK for '#' (anon subscribe allowed; verify)");
+        ar_out(ctx, "mqtt-topics-4: INFO mqtt-topics: SUBACK for '#' (anon subscribe allowed; verify)");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "mqtt-topics: wildcard subscribe refused");
+    ar_out(ctx, "mqtt-topics-4: INFO mqtt-topics: wildcard subscribe refused");
     return 0;
 }

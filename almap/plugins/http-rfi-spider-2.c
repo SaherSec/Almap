@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "RFI: no matching paths");
+        ar_out(ctx, "http-rfi-spider-2: INFO RFI: no matching paths");
     }
     return 0;
 }

@@ -29,7 +29,7 @@ int almap_script_run(AlScriptContext *ctx) {
         }
     }
     if (found == 0) {
-        ar_out(ctx, "config backups: none found");
+        ar_out(ctx, "http-config-backup: INFO config backups: none found");
     }
     return 0;
 }

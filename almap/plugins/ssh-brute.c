@@ -46,7 +46,7 @@ int almap_script_run(AlScriptContext *ctx) {
         close(fd);
     }
     if (found == 0) {
-        ar_out(ctx, "SSH brute: no valid credentials in 10-word dictionary "
+        ar_out(ctx, "ssh-brute: INFO SSH brute: no valid credentials in 10-word dictionary "
                "(%d attempts; full auth needs completed KEX)", attempts);
     }
     return 0;

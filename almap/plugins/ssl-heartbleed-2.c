@@ -10,11 +10,11 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     rc = ar_tls_heartbleed(ctx, resp, sizeof(resp));
     if (rc == 1) {
-        ar_out(ctx, "VULNERABLE: OpenSSL Heartbleed (CVE-2014-0160)");
+        ar_out(ctx, "ssl-heartbleed-2: INFO matches probe for: OpenSSL Heartbleed (CVE-2014-0160)");
     } else if (rc == 0) {
-        ar_out(ctx, "not vulnerable: OpenSSL Heartbleed");
+        ar_out(ctx, "ssl-heartbleed-2: INFO probe did not match: OpenSSL Heartbleed");
     } else {
-        ar_out(ctx, "Heartbleed: no TLS handshake");
+        ar_out(ctx, "ssl-heartbleed-2: INFO Heartbleed: no TLS handshake");
     }
     return 0;
 }

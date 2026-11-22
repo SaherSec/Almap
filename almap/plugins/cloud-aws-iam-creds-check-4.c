@@ -14,10 +14,10 @@ int almap_script_run(AlScriptContext *ctx) {
     n = ar_http_request(ctx, "GET", "/latest/meta-data/iam/security-credentials/", "169.254.169.254", NULL, NULL, NULL,
                         resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "cloud-aws-iam-creds-check-4: no response from metadata endpoint");
+        ar_out(ctx, "cloud-aws-iam-creds-check-4: INFO no response from metadata endpoint");
         return 0;
     }
-    ar_out(ctx, "cloud-aws-iam-creds-check-4: GET /latest/meta-data/iam/security-cr... [%d]%s", ar_http_status(resp),
+    ar_out(ctx, "cloud-aws-iam-creds-check-4: INFO GET /latest/meta-data/iam/security-cr... [%d]%s", ar_http_status(resp),
            (ar_http_status(resp) == 200) ? " (metadata EXPOSED; verify)" : "");
     return 0;
 }

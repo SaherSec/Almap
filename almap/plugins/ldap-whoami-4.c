@@ -20,10 +20,10 @@ int almap_script_run(AlScriptContext *ctx) {
     if (fd < 0 || as_send_all(fd, bind, sizeof(bind), ctx->timeout_ms) != 0 ||
         (n = as_recv_all(fd, (char *)resp, sizeof(resp), ctx->timeout_ms)) < 7) {
         if (fd >= 0) close(fd);
-        ar_out(ctx, "ldap-whoami-4: not reachable");
+        ar_out(ctx, "ldap-whoami-4: INFO not reachable");
         return 0;
     }
     close(fd);
-    ar_out(ctx, "ldap-whoami-4: LDAP answered bind (%d bytes); anon query surface present", n);
+    ar_out(ctx, "ldap-whoami-4: INFO LDAP answered bind (%d bytes); anon query surface present", n);
     return 0;
 }

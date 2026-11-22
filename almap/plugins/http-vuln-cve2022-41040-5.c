@@ -12,9 +12,9 @@ int almap_script_run(AlScriptContext *ctx) {
     }
     n = ar_http_get(ctx, "/autodiscover/autodiscover.json?@foo.com/mapi/nspi/?&Email=autodiscover/autodiscover.json%3F@foo.com", resp, sizeof(resp));
     if (n <= 0) {
-        ar_out(ctx, "http-vuln-cve2022-41040-5: no HTTP response");
+        ar_out(ctx, "http-vuln-cve2022-41040-5: INFO no HTTP response");
         return 0;
     }
-    ar_out(ctx, "http-vuln-cve2022-41040-5: HTTP %d, %d bytes", ar_http_status(resp), n);
+    ar_out(ctx, "http-vuln-cve2022-41040-5: INFO HTTP %d, %d bytes", ar_http_status(resp), n);
     return 0;
 }
