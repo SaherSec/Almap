@@ -913,7 +913,7 @@ int almap_http_scan_result(unsigned char *head, int head_cap, int *exit_code,
 }
 
 int almap_http_scan_send_body(int client_fd) {
-    char hdr[160];
+    char hdr[384];
     int hn;
     int rc = 0;
     static const unsigned char empty[2] = {'[', ']'};
@@ -929,7 +929,12 @@ int almap_http_scan_send_body(int client_fd) {
     }
     hn = snprintf(hdr, sizeof(hdr),
                   "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
-                  "Content-Length: %zu\r\nConnection: close\r\n\r\n", blen);
+                  "Content-Length: %zu\r\n"
+                  "X-Content-Type-Options: nosniff\r\n"
+                  "X-Frame-Options: DENY\r\n"
+                  "Content-Security-Policy: frame-ancestors 'none'\r\n"
+                  "Cache-Control: no-store\r\n"
+                  "Connection: close\r\n\r\n", blen);
     if (hn < 0 || (size_t)hn >= sizeof(hdr) ||
         almap_http_send(client_fd, (const unsigned char *)hdr, hn) != 0 ||
         blen > (size_t)INT_MAX ||

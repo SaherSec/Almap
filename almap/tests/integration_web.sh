@@ -159,6 +159,36 @@ grep -q '{"error":"Content-Type must be application/json"}' /tmp/web_sec.out || 
 [ "$(code -H "$AUTH" -H "Content-Type: Application/JSON; charset=utf-8" -X POST "$SCAN_URL" -d '{"ports":"80"}')" = "400" ] || fail "JSON with charset param refused as non-JSON"
 echo "request size / Content-Type checks OK" >&2
 
+# Security response headers on every reply: HTML, API 200, 401, 404, 415,
+# 413 (C-side early reply) and a scan result (C-framed 200).
+hdr_check() { # NAME FILE
+    local h
+    for h in "X-Content-Type-Options: nosniff" "X-Frame-Options: DENY" \
+             "Content-Security-Policy: frame-ancestors 'none'" "Cache-Control: no-store"; do
+        grep -qiF "$h" "$2" || fail "$1: missing header '$h': $(head -c 400 "$2")"
+    done
+}
+curl -sD "$TMPD/h_index" -o /dev/null "http://$HOST:$WEB_PORT/"
+hdr_check "GET /" "$TMPD/h_index"
+curl -sD "$TMPD/h_status" -o /dev/null -H "$AUTH" "http://$HOST:$WEB_PORT/api/status"
+hdr_check "GET /api/status" "$TMPD/h_status"
+curl -sD "$TMPD/h_401" -o /dev/null "http://$HOST:$WEB_PORT/api/status"
+head -1 "$TMPD/h_401" | grep -q 401 || fail "expected 401 for the header check"
+hdr_check "401" "$TMPD/h_401"
+curl -sD "$TMPD/h_404" -o /dev/null -H "$AUTH" "http://$HOST:$WEB_PORT/nope"
+head -1 "$TMPD/h_404" | grep -q 404 || fail "expected 404 for the header check"
+hdr_check "404" "$TMPD/h_404"
+curl -sD "$TMPD/h_415" -o /dev/null -H "$AUTH" -H "Content-Type: text/plain" -X POST "$SCAN_URL" -d '{}'
+head -1 "$TMPD/h_415" | grep -q 415 || fail "expected 415 for the header check"
+hdr_check "415" "$TMPD/h_415"
+curl -sD "$TMPD/h_413" -o /dev/null -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$BIG"
+head -1 "$TMPD/h_413" | grep -q 413 || fail "expected 413 for the header check"
+hdr_check "413" "$TMPD/h_413"
+curl -sD "$TMPD/h_scan" -o /dev/null -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body)"
+head -1 "$TMPD/h_scan" | grep -q 200 || fail "expected 200 for the scan header check: $(cat "$TMPD/h_scan")"
+hdr_check "scan 200" "$TMPD/h_scan"
+echo "security response headers OK" >&2
+
 # A string value with an escape the parser does not decode is a 400 (it
 # used to be ignored, e.g. the scan ran without the plugin).
 [ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d '{"targets":"127.0.0.1","ports":"80","script":"a\"b"}')" = "400" ] || fail "script with an escape not 400"

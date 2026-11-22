@@ -461,6 +461,10 @@ fn send_response(client: i32, code: i64, ctype: const u8[:], body: const u8[:]) 
     hdr.append(ctype);
     hdr.append("\r\nContent-Length: ");
     format(hdr, body.len);
+    hdr.append("\r\nX-Content-Type-Options: nosniff");
+    hdr.append("\r\nX-Frame-Options: DENY");
+    hdr.append("\r\nContent-Security-Policy: frame-ancestors 'none'");
+    hdr.append("\r\nCache-Control: no-store");
     hdr.append("\r\nConnection: close\r\n\r\n");
     let _ = almap_http_send(client, hdr[0], hdr.len as i32);
     if body.len > 0 {
