@@ -1,0 +1,139 @@
+name: Lab
+
+# Runs every plugin family's lab (tests/lab/<family>) against pinned podman
+# containers, one job per family, then checks that every plugin marked
+# verified had ALL of its lab cases run and pass in this very run. CI is the
+# authority for "verified": a check whose cases did not run or did not pass
+# here is reported by name and fails the workflow, whatever a local run says.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOOSE_VERSION: v2026.3
+  GOOSE_SHA256: 06ac30284338269d3996d457412bf4f2b47c1f9a5601de65b6317187fe78d5c9
+  # The runner image's podman. A different version fails the job loudly so the
+  # change is reviewed (kube play behaviour differs between versions).
+  PODMAN_EXPECTED: "4.9"
+
+jobs:
+  families:
+    name: list the lab families
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: List the families (names are validated before they are used)
+        id: list
+        run: |
+          set -euo pipefail
+          list=""
+          for d in almap/tests/lab/*/; do
+            d=${d%/}
+            [ -f "$d/cases.tsv" ] || continue
+            name=${d##*/}
+            if ! [[ "$name" =~ ^[a-z0-9-]+$ ]]; then
+              echo "bad family directory name: $name" >&2
+              exit 1
+            fi
+            list="${list}\"${name}\","
+          done
+          echo "list=[${list%,}]" >> "$GITHUB_OUTPUT"
+          echo "families: [${list%,}]"
+
+  lab:
+    name: lab (${{ matrix.family }})
+    needs: families
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        family: ${{ fromJSON(needs.families.outputs.list) }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc libc6-dev curl python3 podman
+
+      - name: Check the podman version
+        run: |
+          podman --version
+          podman --version | grep -q "version ${PODMAN_EXPECTED}" || {
+            echo "expected podman ${PODMAN_EXPECTED}.x on this runner image; review the lab before changing it" >&2
+            exit 1
+          }
+
+      - name: Install Goose (pinned release, checksum verified)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o goose.tar.gz "https://github.com/aardappel/goose/releases/download/${GOOSE_VERSION}/goose-${GOOSE_VERSION}-linux-x64.tar.gz"
+          echo "${GOOSE_SHA256}  goose.tar.gz" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/goose"
+          tar -xzf goose.tar.gz -C "${RUNNER_TEMP}/goose" --strip-components=1
+          echo "GOOSE_HOME=${RUNNER_TEMP}/goose" >> "${GITHUB_ENV}"
+          echo "${RUNNER_TEMP}/goose" >> "${GITHUB_PATH}"
+          echo "GOOSE_STDLIB=${RUNNER_TEMP}/goose/stdlib" >> "${GITHUB_ENV}"
+
+      - name: Build the scanner
+        working-directory: almap
+        run: goose build almap.goose --cc gcc -o almap
+
+      - name: Run the lab for this family
+        working-directory: almap
+        env:
+          FAMILY: ${{ matrix.family }}
+        run: |
+          set -o pipefail
+          mkdir -p ../results
+          bash tests/lab/run.sh "$FAMILY" 2>&1 | tee "../results/${FAMILY}.log"
+
+      - name: Keep the family's result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lab-${{ matrix.family }}
+          path: results/${{ matrix.family }}.log
+          if-no-files-found: error
+
+  prove:
+    name: every verified check ran and passed
+    needs: lab
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Collect the family results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: lab-*
+          path: results
+          merge-multiple: true
+
+      - name: A check counts as verified only if all of its cases passed here
+        working-directory: almap
+        run: python3 -I tools/check_verified.py ../results
