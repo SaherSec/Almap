@@ -22,14 +22,28 @@ extern "C" {
  *   Blocks until a client connects. Retries on EINTR. Returns the
  *   client fd (>= 0) or -1 on failure.
  *
- * almap_http_read(client_fd, buf, cap):
- *   Reads one HTTP request into buf (NUL-terminated). Returns total
- *   bytes read (> 0), -400/-413 (see above), or -1 when no bytes
- *   arrive (timeout/EOF/error).
- *   Sets a 5s SO_RCVTIMEO. Reads until the header terminator
- *   (CRLFCRLF) plus Content-Length body bytes are present, or until
- *   timeout/EOF, up to cap-1 bytes. buf must hold at least cap bytes,
- *   cap >= 2.
+ * almap_http_next(listen_fd, buf, cap, client_fd, kind):
+ *   poll() loop over the listener and up to ALMAP_WEB_MAX_CLIENTS
+ *   pending non-blocking, close-on-exec clients (one ALMAP_WEB_REQ_CAP
+ *   buffer per slot, kept in C). Blocks until an event, then sets
+ *   *kind and returns:
+ *     ALMAP_EV_REQUEST    a complete request (head + Content-Length
+ *                         body) was copied into buf, NUL-terminated;
+ *                         returns its length. *client_fd is the
+ *                         client; the caller owns it (replies, closes).
+ *     ALMAP_EV_TOO_LARGE / ALMAP_EV_BAD_LENGTH
+ *                         the request is oversize / has a malformed
+ *                         Content-Length; *client_fd is handed out the
+ *                         same way (caller answers 413 / 400); returns 0.
+ *     ALMAP_EV_SCAN_DONE  reserved for the scan worker; returns 0.
+ *   A client that has not completed its request within
+ *   ALMAP_WEB_REQ_DEADLINE_MS of being accepted (total, not per read),
+ *   or that closes first, is closed silently: a request with fewer
+ *   body bytes than its Content-Length is never handed out. Beyond
+ *   ALMAP_WEB_MAX_CLIENTS pending clients a new connection is accepted
+ *   and closed at once. Handed-out fds are switched back to blocking
+ *   mode. Returns -1 (kind 0) on a fatal error. buf must hold cap
+ *   bytes, cap >= 2.
  *
  * almap_http_send(client_fd, buf, len):
  *   Writes all len bytes (send loop with MSG_NOSIGNAL) so a closed
@@ -77,9 +91,20 @@ extern "C" {
 #define ALMAP_WEB_REQ_CAP 8192
 #define ALMAP_WEB_CL_MAX ALMAP_WEB_REQ_CAP
 
-/* Negative almap_http_read results (HTTP status codes, negated). */
+/* Negated HTTP status codes for oversize / malformed Content-Length. */
 #define ALMAP_HTTP_ERR_TOO_LARGE (-413)
 #define ALMAP_HTTP_ERR_BAD_LENGTH (-400)
+
+/* Pending-client limits. Each may be overridden by an environment
+ * variable of the same name (read once, ignored when invalid). */
+#define ALMAP_WEB_MAX_CLIENTS 32
+#define ALMAP_WEB_REQ_DEADLINE_MS 2000
+
+/* almap_http_next event kinds. */
+#define ALMAP_EV_REQUEST 1
+#define ALMAP_EV_TOO_LARGE 2
+#define ALMAP_EV_BAD_LENGTH 3
+#define ALMAP_EV_SCAN_DONE 4
 
 /*
  * almap_http_parse_content_length(hdr, hdr_len, out): pure parser for
@@ -87,17 +112,17 @@ extern "C" {
  * 1 if valid (*out in 0..ALMAP_WEB_CL_MAX), -1 if malformed,
  * overflowing, conflicting or too large.
  *
- * almap_http_read also returns ALMAP_HTTP_ERR_BAD_LENGTH (-400) for a
- * -1 parse and ALMAP_HTTP_ERR_TOO_LARGE (-413) when head + declared
- * body do not fit in cap-1 bytes (or the head alone fills the buffer).
- * Other failures stay -1.
+ * almap_http_next reports ALMAP_EV_BAD_LENGTH for a malformed length
+ * and ALMAP_EV_TOO_LARGE when head + declared body do not fit in
+ * cap-1 bytes (or the head alone fills the buffer).
  */
 int almap_http_parse_content_length(const unsigned char *hdr, int hdr_len,
                                     long *out);
 
 int almap_http_listen(const char *bind_addr, int port);
 int almap_http_accept(int listen_fd);
-int almap_http_read(int client_fd, unsigned char *buf, int cap);
+int almap_http_next(int listen_fd, unsigned char *buf, int cap,
+                    int *client_fd, int *kind);
 int almap_http_send(int client_fd, const unsigned char *buf, int len);
 int almap_http_close(int fd);
 int almap_http_self_exe(unsigned char *buf, int cap);

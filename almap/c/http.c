@@ -6,6 +6,8 @@
 #include "http.h"
 
 #include <errno.h>
+#include <poll.h>
+#include <time.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -16,6 +18,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -245,75 +248,274 @@ int almap_http_accept(int listen_fd) {
     }
 }
 
-int almap_http_read(int client_fd, unsigned char *buf, int cap) {
-    int total = 0;
-#ifdef __linux__
-    struct timeval tv;
-#endif
+struct pending {
+    int fd; /* -1 when the slot is free */
+    int len;
+    long long deadline_ms;
+    unsigned char buf[ALMAP_WEB_REQ_CAP];
+};
 
-    if (client_fd < 0 || buf == NULL || cap < 2) {
+static struct pending *g_slots;
+static int g_nslots;
+static long g_deadline_ms;
+
+static long long mono_ms(void) {
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return 0;
+    }
+    return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* Value of env var `name` when it is a plain integer in lo..hi. */
+static long env_limit(const char *name, long dflt, long lo, long hi) {
+    const char *v = getenv(name);
+    char *end = NULL;
+    long x;
+
+    if (v == NULL || v[0] == '\0') {
+        return dflt;
+    }
+    errno = 0;
+    x = strtol(v, &end, 10);
+    if (errno != 0 || end == v || *end != '\0' || x < lo || x > hi) {
+        return dflt;
+    }
+    return x;
+}
+
+static int next_init(void) {
+    int i;
+
+    if (g_slots != NULL) {
+        return 0;
+    }
+    g_nslots = (int)env_limit("ALMAP_WEB_MAX_CLIENTS", ALMAP_WEB_MAX_CLIENTS,
+                              1, 1024);
+    g_deadline_ms = env_limit("ALMAP_WEB_REQ_DEADLINE_MS",
+                              ALMAP_WEB_REQ_DEADLINE_MS, 1, 600000);
+    g_slots = (struct pending *)calloc((size_t)g_nslots, sizeof(*g_slots));
+    if (g_slots == NULL) {
         return -1;
     }
-    buf[0] = '\0';
-#ifdef __linux__
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
-    setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-#endif
+    for (i = 0; i < g_nslots; i++) {
+        g_slots[i].fd = -1;
+    }
+    return 0;
+}
 
-    while (total < cap - 1) {
-        ssize_t n;
-        int header_end;
-        long clen = 0;
-        int have_cl;
-        int too_large = 0;
+static void slot_drop(struct pending *p) {
+    if (p->fd >= 0) {
+        close(p->fd);
+    }
+    p->fd = -1;
+    p->len = 0;
+}
 
-        n = recv(client_fd, buf + total, (size_t)(cap - 1 - total), 0);
-        if (n < 0) {
+/* Accept every queued connection into a free slot (or close it). */
+static void accept_ready(int listen_fd) {
+    for (;;) {
+        int c = accept(listen_fd, NULL, NULL);
+        int i;
+        int fl;
+
+        if (c < 0) {
             if (errno == EINTR) {
                 continue;
             }
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                break;
-            }
-            return total > 0 ? total : -1;
+            return; /* EAGAIN or a transient accept error */
         }
-        if (n == 0) {
-            break;
-        }
-        total += (int)n;
-        buf[total] = '\0';
-
-        header_end = find_header_end(buf, total);
-        if (header_end < 0) {
+        set_cloexec(c);
+        fl = fcntl(c, F_GETFL);
+        if (fl < 0 || fcntl(c, F_SETFL, fl | O_NONBLOCK) != 0) {
+            close(c);
             continue;
         }
-        have_cl = parse_cl(buf, header_end, &clen, &too_large);
-        if (have_cl < 0) {
-            return too_large ? ALMAP_HTTP_ERR_TOO_LARGE
-                             : ALMAP_HTTP_ERR_BAD_LENGTH;
+        for (i = 0; i < g_nslots && g_slots[i].fd >= 0; i++) {
         }
-        if (have_cl == 0) {
-            /* GET and other header-only requests are complete. */
-            break;
+        if (i == g_nslots) {
+            close(c); /* too many pending clients */
+            continue;
         }
-        if ((long)header_end + clen > (long)(cap - 1)) {
-            return ALMAP_HTTP_ERR_TOO_LARGE;
-        }
-        if ((long)header_end + clen <= (long)total) {
-            break;
-        }
-        /* Body incomplete: keep reading until CL bytes arrive. */
+        g_slots[i].fd = c;
+        g_slots[i].len = 0;
+        g_slots[i].deadline_ms = mono_ms() + g_deadline_ms;
     }
-    if (total == 0) {
+}
+
+/* Hand slot p to the caller: blocking again, with a send timeout so a
+ * client that never reads cannot stall the reply forever. */
+static void slot_release(struct pending *p, int *client_fd) {
+    struct timeval tv;
+    int fl = fcntl(p->fd, F_GETFL);
+
+    if (fl >= 0) {
+        (void)fcntl(p->fd, F_SETFL, fl & ~O_NONBLOCK);
+    }
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    (void)setsockopt(p->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    *client_fd = p->fd;
+    p->fd = -1;
+    p->len = 0;
+}
+
+/* Examine slot p. Returns 0 (still incomplete), or an ALMAP_EV_* kind
+ * (the request is complete or rejected). `limit` is the largest
+ * request the caller's buffer can take. */
+static int slot_state(struct pending *p, int limit, int *req_len) {
+    int header_end = find_header_end(p->buf, p->len);
+    long clen = 0;
+    int too_large = 0;
+    int have_cl;
+
+    if (header_end < 0) {
+        return p->len >= limit ? ALMAP_EV_TOO_LARGE : 0;
+    }
+    have_cl = parse_cl(p->buf, header_end, &clen, &too_large);
+    if (have_cl < 0) {
+        return too_large ? ALMAP_EV_TOO_LARGE : ALMAP_EV_BAD_LENGTH;
+    }
+    if (have_cl == 0) {
+        clen = 0;
+    }
+    if ((long)header_end + clen > (long)limit) {
+        return ALMAP_EV_TOO_LARGE;
+    }
+    if ((long)header_end + clen <= (long)p->len) {
+        *req_len = header_end + (int)clen;
+        return ALMAP_EV_REQUEST;
+    }
+    return 0;
+}
+
+int almap_http_next(int listen_fd, unsigned char *buf, int cap,
+                    int *client_fd, int *kind) {
+    int limit;
+    int fl;
+
+    if (kind != NULL) {
+        *kind = 0;
+    }
+    if (client_fd != NULL) {
+        *client_fd = -1;
+    }
+    if (listen_fd < 0 || buf == NULL || cap < 2 || client_fd == NULL ||
+        kind == NULL || next_init() != 0) {
         return -1;
     }
-    if (total >= cap - 1 && find_header_end(buf, total) < 0) {
-        /* Head alone fills the buffer: oversize, not truncated. */
-        return ALMAP_HTTP_ERR_TOO_LARGE;
+    buf[0] = '\0';
+    limit = cap - 1 < ALMAP_WEB_REQ_CAP - 1 ? cap - 1 : ALMAP_WEB_REQ_CAP - 1;
+    fl = fcntl(listen_fd, F_GETFL);
+    if (fl >= 0 && !(fl & O_NONBLOCK)) {
+        (void)fcntl(listen_fd, F_SETFL, fl | O_NONBLOCK);
     }
-    buf[total] = '\0';
-    return total;
+
+    for (;;) {
+        struct pollfd *pfd;
+        int *idx;
+        int nfd = 1;
+        int i;
+        int timeout = -1;
+        long long now = mono_ms();
+        int rc;
+
+        for (i = 0; i < g_nslots; i++) {
+            if (g_slots[i].fd >= 0 && g_slots[i].deadline_ms <= now) {
+                slot_drop(&g_slots[i]); /* deadline: no reply, no event */
+            }
+        }
+        pfd = (struct pollfd *)malloc((size_t)(g_nslots + 1) * sizeof(*pfd));
+        idx = (int *)malloc((size_t)(g_nslots + 1) * sizeof(*idx));
+        if (pfd == NULL || idx == NULL) {
+            free(pfd);
+            free(idx);
+            return -1;
+        }
+        pfd[0].fd = listen_fd;
+        pfd[0].events = POLLIN;
+        pfd[0].revents = 0;
+        idx[0] = -1;
+        for (i = 0; i < g_nslots; i++) {
+            if (g_slots[i].fd < 0) {
+                continue;
+            }
+            pfd[nfd].fd = g_slots[i].fd;
+            pfd[nfd].events = POLLIN;
+            pfd[nfd].revents = 0;
+            idx[nfd++] = i;
+            {
+                long long left = g_slots[i].deadline_ms - now;
+
+                if (left < 0) {
+                    left = 0;
+                }
+                if (left > 600000) {
+                    left = 600000;
+                }
+                if (timeout < 0 || left < timeout) {
+                    timeout = (int)left;
+                }
+            }
+        }
+        rc = poll(pfd, (nfds_t)nfd, timeout);
+        if (rc < 0) {
+            free(pfd);
+            free(idx);
+            if (errno == EINTR) {
+                continue;
+            }
+            return -1;
+        }
+        if (rc > 0 && (pfd[0].revents & POLLIN)) {
+            accept_ready(listen_fd);
+        }
+        for (i = 1; i < nfd && rc > 0; i++) {
+            struct pending *p = &g_slots[idx[i]];
+            ssize_t n;
+            int req_len = 0;
+            int ev;
+
+            if (!(pfd[i].revents & (POLLIN | POLLHUP | POLLERR)) ||
+                p->fd != pfd[i].fd) {
+                continue;
+            }
+            n = recv(p->fd, p->buf + p->len,
+                     (size_t)(ALMAP_WEB_REQ_CAP - 1 - p->len), 0);
+            if (n < 0) {
+                if (errno == EINTR || errno == EAGAIN ||
+                    errno == EWOULDBLOCK) {
+                    continue;
+                }
+                slot_drop(p);
+                continue;
+            }
+            if (n == 0) {
+                slot_drop(p); /* EOF before a complete request */
+                continue;
+            }
+            p->len += (int)n;
+            p->buf[p->len] = '\0';
+            ev = slot_state(p, limit, &req_len);
+            if (ev == 0) {
+                continue;
+            }
+            free(pfd);
+            free(idx);
+            *kind = ev;
+            if (ev == ALMAP_EV_REQUEST) {
+                memcpy(buf, p->buf, (size_t)req_len);
+                buf[req_len] = '\0';
+                slot_release(p, client_fd);
+                return req_len;
+            }
+            slot_release(p, client_fd);
+            return 0;
+        }
+        free(pfd);
+        free(idx);
+    }
 }
 
 int almap_http_send(int client_fd, const unsigned char *buf, int len) {

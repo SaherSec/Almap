@@ -53,7 +53,7 @@ namespace webui;
 
 extern fn almap_http_listen(bind_addr: const u8&, port: i32) -> i32;
 extern fn almap_http_accept(listen_fd: i32) -> i32;
-extern fn almap_http_read(client_fd: i32, buf: u8&, cap: i32) -> i32;
+extern fn almap_http_next(listen_fd: i32, buf: u8&, cap: i32, client_fd: i32&, kind: i32&) -> i32;
 extern fn almap_http_send(client_fd: i32, buf: const u8&, len: i32) -> i32;
 extern fn almap_http_close(fd: i32) -> i32;
 extern fn almap_http_self_exe(buf: u8&, cap: i32) -> i32;
@@ -758,23 +758,27 @@ fn serve(port: i64, bind_addr: const u8[:]) -> bool {
         print("warning: the Web UI is reachable beyond this machine; anyone with the token can run scans as this user");
     }
     loop {
-        let client = almap_http_accept(listen_fd);
-        if client < 0 { continue; }
         var req_buf: u8[8192] = [0; 8192];
-        let n = almap_http_read(client, req_buf[0], req_buf.len as i32);
-        if n == -413 || n == -400 {
+        var fd_out: i32[1] = [0 - 1];
+        var kind_out: i32[1] = [0];
+        let n = almap_http_next(listen_fd, req_buf[0], req_buf.len as i32, fd_out[0], kind_out[0]);
+        let client = fd_out[0];
+        let kind = kind_out[0];
+        if kind == 2 || kind == 3 {
             var err: u8[>..] = [];
-            if n == -413 {
+            var st: i32 = 400;
+            if kind == 2 {
                 error_json(err, "request too large");
+                st = 413;
             } else {
                 error_json(err, "bad request");
             }
-            send_response(client, 0 - n, "application/json", err);
+            send_response(client, st, "application/json", err);
             almap_http_close(client);
             continue;
         }
-        if n <= 0 {
-            almap_http_close(client);
+        if kind != 1 || client < 0 || n <= 0 {
+            if client >= 0 { almap_http_close(client); }
             continue;
         }
         let req = req_buf[..n as i64];

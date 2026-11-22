@@ -150,6 +150,96 @@ grep -q '{"error":"Content-Type must be application/json"}' /tmp/web_sec.out || 
 [ "$(code -H "$AUTH" -H "Content-Type: Application/JSON; charset=utf-8" -X POST "$SCAN_URL" -d '{"ports":"80"}')" = "400" ] || fail "JSON with charset param refused as non-JSON"
 echo "request size / Content-Type checks OK" >&2
 
+# Slow clients must not block the server.
+now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
+status_ms() {
+    local t0 t1
+    t0=$(now_ms)
+    [ "$(code -H "$AUTH" --max-time 8 "http://$HOST:$WEB_PORT/api/status")" = "200" ] || return 1
+    t1=$(now_ms)
+    echo $((t1 - t0))
+}
+# holder N SECONDS: open N idle connections, hold them, then exit.
+idle_holder() {
+    python3 -c '
+import socket, sys, time
+socks = []
+for _ in range(int(sys.argv[1])):
+    s = socket.create_connection(("127.0.0.1", int(sys.argv[2])))
+    socks.append(s)
+print("ready", flush=True)
+time.sleep(float(sys.argv[3]))
+' "$1" "$WEB_PORT" "$2"
+}
+coproc IDLE10 { idle_holder 10 6; }
+read -r _ <&"${IDLE10[0]}"
+ELAPSED=$(status_ms) || fail "/api/status failed behind 10 idle connections"
+[ "$ELAPSED" -lt 500 ] || fail "status took ${ELAPSED}ms behind 10 idle connections (want < 500)"
+echo "10 idle connections: status in ${ELAPSED}ms OK" >&2
+kill "$IDLE10_PID" 2>/dev/null; wait "$IDLE10_PID" 2>/dev/null
+
+# Trickle: one header byte every 300 ms must be closed within 2.5 s.
+TRICKLE=$(python3 -c '
+import socket, sys, time
+s = socket.create_connection(("127.0.0.1", int(sys.argv[1])))
+s.settimeout(0.05)
+t0 = time.time()
+data = b"GET /api/status HTTP/1.1\r\nX-Slow: " + b"a" * 200
+i = 0
+closed = None
+while time.time() - t0 < 6:
+    try:
+        s.send(data[i:i+1]); i += 1
+    except OSError:
+        closed = time.time() - t0; break
+    try:
+        if s.recv(64) == b"":
+            closed = time.time() - t0; break
+    except socket.timeout:
+        pass
+    except OSError:
+        closed = time.time() - t0; break
+    time.sleep(0.25)
+print("%d" % (closed * 1000) if closed is not None else "never")
+' "$WEB_PORT")
+[ "$TRICKLE" != "never" ] || fail "trickle client was never closed"
+[ "$TRICKLE" -lt 2500 ] || fail "trickle client closed after ${TRICKLE}ms (want < 2500)"
+echo "trickle client closed after ${TRICKLE}ms OK" >&2
+
+# Short body: Content-Length 100, 10 bytes sent, then stall -> closed
+# by the server without a reply, and the server still answers.
+SHORT=$(python3 -c '
+import socket, sys, time
+s = socket.create_connection(("127.0.0.1", int(sys.argv[1])))
+s.sendall(b"POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n0123456789")
+s.settimeout(4)
+t0 = time.time()
+try:
+    d = s.recv(4096)
+except socket.timeout:
+    print("never"); sys.exit(0)
+except OSError:
+    d = b""
+print("reply" if d else "%d" % ((time.time() - t0) * 1000))
+' "$WEB_PORT")
+[ "$SHORT" != "never" ] || fail "short-body client was never closed"
+[ "$SHORT" != "reply" ] || fail "short-body client got a reply"
+[ "$SHORT" -lt 2600 ] || fail "short-body client closed after ${SHORT}ms (want < 2600)"
+[ "$(code -H "$AUTH" "http://$HOST:$WEB_PORT/api/status")" = "200" ] || fail "status after short-body client failed"
+echo "short body dropped after ${SHORT}ms OK" >&2
+
+# 40 idle connections (over the pending limit): status still answers.
+coproc IDLE40 { idle_holder 40 5; }
+read -r _ <&"${IDLE40[0]}"
+# While the flood fills every pending slot new connections are refused
+# (by design); once the per-request deadline has expired the idle
+# connections are dropped and the server answers again.
+sleep 3
+ELAPSED=$(status_ms) || fail "/api/status failed after 40 idle connections"
+echo "40 idle connections: status answered in ${ELAPSED}ms after the deadline OK" >&2
+kill "$IDLE40_PID" 2>/dev/null; wait "$IDLE40_PID" 2>/dev/null
+[ "$(code -H "$AUTH" "http://$HOST:$WEB_PORT/api/status")" = "200" ] || fail "status after idle flood failed"
+
 # Script: plugin names only.
 for bad in "$TMPD/evil.so" "../plugins/sample_banner" "plugins/sample_banner.so" "a..b" ".hidden"; do
     [ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"$bad\"")")" = "400" ] || fail "script '$bad' not refused"
