@@ -4,7 +4,7 @@
 
 ### Plugins: SMB family (batch 11.3)
 
-Before: 54 files, most of them printing a negotiate summary and "verify". After: 6 checks proven in the podman lab, 4 that stay experimental, the rest removed. Lab: six Samba configurations (4.6.3, 4.12.2 and the current 4.23.8 in four protocol and signing settings, `tests/lab/smb`). Notes: [docs/plans/batches/03-smb.md](docs/plans/batches/03-smb.md).
+Before: 54 files, most of them printing a negotiate summary and "verify". After: 6 checks run in the podman lab (the four `info` checks are proven against the servers' real answers; for the two `detect` checks the lab proves only that the banner is read and the version ranges are applied, which is why they are `detect`), 4 that stay experimental, the rest removed. Lab: six Samba configurations (4.6.3, 4.12.2 and the current 4.23.8 in four protocol and signing settings, `tests/lab/smb`). Notes: [docs/plans/batches/03-smb.md](docs/plans/batches/03-smb.md).
 
 - `smb_version`, `smb-protocols`, `smb-security-mode` and `smb-os-discovery` (tier `info`) are rewritten on a new `arsenal_smbx.h`. `smb-protocols` is compared with what Samba's `smbclient` accepts for each pinned dialect, `smb-security-mode` with a second client written from the protocol documents. The shipped `smb_version` printed `SMB 2.???` for every server (it read the SMB2 wildcard dialect of the SMB1 reply), and the other shipped checks printed "probe did not match" or an SMB1 dialect name on servers that have SMB1 switched off.
 - `smb-os-discovery` reads the native OS, LAN Manager and domain strings (SMB1) and the computer and domain names of the NTLMSSP challenge (SMB1 and SMB2). Only the NTLMSSP negotiate message is sent; no credentials.

@@ -40,7 +40,7 @@ smb-cve-2017-7494	smb4238	19303	match:^smb-cve-2017-7494: INFO SMB1 not accepted
 smb-cve-2017-7494	smb4238nt1	19304	match:^smb-cve-2017-7494: NOT DETECTED Samba
 smb-cve-2017-7494	smb4238v2	19305	match:^smb-cve-2017-7494: INFO SMB1 not accepted
 smb-cve-2017-7494	smb4238v3	19306	match:^smb-cve-2017-7494: INFO SMB1 not accepted
-smb-cve-2017-7494	fixture	19090	fixture:neg-plain-http:match:^smb-cve-2017-7494: INFO no SMB1 response
+smb-cve-2017-7494	fixture	19090	fixture:neg-plain-http:match:^smb-cve-2017-7494: INFO no SMB response
 smb-cve-2017-7494	fixture	19090	fixture:neg-plain-http:nomatch:DETECTED
 # smb-cve-2021-44142: banner version of the real Samba releases; SMB2-only servers disclose no version and must say INFO
 smb-cve-2021-44142	smb463	19301	match:^smb-cve-2021-44142: DETECTED Samba
@@ -49,5 +49,5 @@ smb-cve-2021-44142	smb4238	19303	match:^smb-cve-2021-44142: INFO SMB1 not accept
 smb-cve-2021-44142	smb4238nt1	19304	match:^smb-cve-2021-44142: NOT DETECTED Samba
 smb-cve-2021-44142	smb4238v2	19305	match:^smb-cve-2021-44142: INFO SMB1 not accepted
 smb-cve-2021-44142	smb4238v3	19306	match:^smb-cve-2021-44142: INFO SMB1 not accepted
-smb-cve-2021-44142	fixture	19090	fixture:neg-plain-http:match:^smb-cve-2021-44142: INFO no SMB1 response
+smb-cve-2021-44142	fixture	19090	fixture:neg-plain-http:match:^smb-cve-2021-44142: INFO no SMB response
 smb-cve-2021-44142	fixture	19090	fixture:neg-plain-http:nomatch:DETECTED

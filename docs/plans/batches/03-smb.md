@@ -54,6 +54,12 @@ The affected ranges: CVE-2017-7494 from the samba.org advisory (all versions fro
 
 ## Evidence summary (46 lab cases, `tests/lab/smb/cases.tsv`)
 
-- Six Samba servers for every check; `smb-protocols` against `smbclient`, `smb-security-mode` against an independent client. A non-SMB control (real nginx bytes, replayed) must give "no SMB response" / `INFO no SMB1 response`, and for the CVE checks never `DETECTED`.
+- Six Samba servers for every check; `smb-protocols` against `smbclient`, `smb-security-mode` against an independent client. A non-SMB control (real nginx bytes, replayed) must give "no SMB response" / `INFO no SMB response`, and for the CVE checks never `DETECTED`.
 - `tests/test_smb.c`: parsers against eight replies captured byte for byte from the lab (`tests/smb_vectors.h`), every truncation of them (also under ASan/UBSan), hostile NTLM offsets, every Samba version boundary (4 mutations of the boundary and parser code are each caught), a silent peer, an oversized announced reply.
 - Not covered by any target: **any Windows server** (so `smb-os-discovery` on Windows, the SMB2 signing bit on Windows, a compression context in a real SMBGhost-era reply), a vendor build against a live server (`4.9.5-Debian` is unit-tested only), servers that throttle or rate-limit connections, a server offering only SMB 3.1.1 with encryption required.
+
+## Review of the batch (Sonnet subagent plus the automated security review) and what changed
+
+No Critical. Fixed (test first where a test can show it): a 32-bit wrap in the SMB2 negotiate-context loop (a hostile offset near 2^32 was read; ASan SEGV before, clean after); `smb-protocols` printed a dialect that got no reply as if it were refused, it now says `no reply for: ... (not decided)`; the NEGOTIATE request wrote the client GUID over the Capabilities field (Capabilities claimed 0x706D6C41), now Capabilities is 0 and the GUID sits at offset 76; the SMB2 wildcard dialect 0x02FF was accepted as a dialect; the NTLM version was taken from a challenge that failed validation; `smb-cve-*` said "SMB1 not accepted" when SMB1 was accepted but the session reply was unusable; `poll` interrupted by a signal counted as a timeout. Wording: the CHANGELOG now says what the lab proves for the two `detect` checks, and the README states the per-plugin connection count.
+
+Kept as is / deferred: no lab case for a silent peer, an immediate close, a garbage frame or the vendor-build path (unit-tested for the parsers and the silent peer only); the signing oracle shares its author with the plugin, so only the two configured extremes are independent ground truth; the CVE-2021-44142 lower bound 4.1 rests on Samba bug 14914, not the advisory text.

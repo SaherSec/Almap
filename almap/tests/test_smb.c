@@ -75,6 +75,11 @@ int main(void) {
             arx_smb2_neg_parse(bad, sizeof(bad), &n2);
             CHECK(n2.ok && n2.compression_ctx, "compression context seen");
         }
+        /* the SMB2 wildcard dialect 0x02FF is not a dialect we offered */
+        memcpy(bad, cap_smb2neg_311, sizeof(bad));
+        arx_put16(bad + 68, 0x02FF);
+        arx_smb2_neg_parse(bad, sizeof(bad), &n2);
+        CHECK(!n2.ok, "wildcard dialect refused");
         /* a context offset near 2^32 must not wrap the bounds check and be read */
         memcpy(bad, cap_smb2neg_311, sizeof(bad));
         arx_put32(bad + 124, 0xFFFFFFFCu);
@@ -93,6 +98,7 @@ int main(void) {
         len = arx_smb2_neg_req(req, sizeof(req), d21, 1);
         CHECK(len == 102 && arx_le16(req + 96) == 0, "2.1 request has no contexts");
         CHECK(arx_smb2_neg_req(req, sizeof(req), d21, 0) == 0, "no dialects refused");
+        CHECK(arx_le32(req + 72) == 0 && memcmp(req + 76, "AlmapScanGuid-01", 16) == 0, "capabilities 0, client guid at offset 76");
     }
 
     /* ---- SMB1 NEGOTIATE + SESSION_SETUP replies (real: Samba 4.6.3 and 4.23.8) ---- */
@@ -134,6 +140,10 @@ int main(void) {
         arx_put32(b + 44, 48);
         arx_ntlm_parse(b, sizeof(b), &nt);
         CHECK(!nt.ok, "oversize target info refused");
+        arx_put32(b + 20, 0x02000000u);     /* version flag on an invalid message: no version reported */
+        arx_ntlm_parse(b, sizeof(b), &nt);
+        CHECK(!nt.ok && !nt.has_version, "version not taken from an invalid challenge");
+        arx_put32(b + 20, 0);
         arx_put16(b + 40, 8);
         arx_put32(b + 44, 0xFFFFFFF0u);     /* offset wrapping around */
         arx_ntlm_parse(b, sizeof(b), &nt);

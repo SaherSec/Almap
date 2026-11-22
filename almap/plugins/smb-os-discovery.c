@@ -5,6 +5,9 @@
 #include "arsenal_smbx.h"
 
 static void ntlm_items(AlScriptContext *ctx, const ArxNtlm *n) {
+    if (!n->ok) {
+        return;
+    }
     if (n->nb_computer[0]) ar_append(ctx, "; NetBIOS computer %s", n->nb_computer);
     if (n->nb_domain[0]) ar_append(ctx, "; NetBIOS domain %s", n->nb_domain);
     if (n->dns_computer[0]) ar_append(ctx, "; DNS computer %s", n->dns_computer);

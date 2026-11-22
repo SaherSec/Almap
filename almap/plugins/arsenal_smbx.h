@@ -35,6 +35,9 @@ static inline int arx_wait(int fd) {
     pfd.events = POLLIN;
     pfd.revents = 0;
     pr = poll(&pfd, 1, left > 2000000 ? 2000000 : (int)left);
+    if (pr < 0 && errno == EINTR) {
+        return arx_wait(fd);        /* a signal is not a timeout: wait out the rest */
+    }
     return pr > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0;
 }
 
@@ -159,7 +162,7 @@ static inline size_t arx_smb2_neg_req(unsigned char *out, size_t cap,
     arx_put16(out + 64, 36);         /* body StructureSize */
     arx_put16(out + 66, (unsigned int)n);
     arx_put16(out + 68, 1);          /* SecurityMode: signing enabled */
-    memcpy(out + 72, "AlmapScanGuid-01", 16);
+    memcpy(out + 76, "AlmapScanGuid-01", 16);   /* ClientGuid; Capabilities (72) stays 0 */
     pos = 100;
     for (i = 0; i < n; i++) {
         arx_put16(out + pos, d[i]);
@@ -204,8 +207,11 @@ static inline void arx_smb2_neg_parse(const unsigned char *r, int len, ArxSmb2Ne
     if (arx_le16(r + 12) != 0 || o->status != 0 || len < 128 || arx_le16(r + 64) != 65) {
         return;
     }
-    o->security_mode = arx_le16(r + 66);
     o->dialect = arx_le16(r + 68);
+    if (arx_smb2_name(o->dialect) == NULL) {      /* e.g. the 0x02FF wildcard: not a dialect we offered */
+        return;
+    }
+    o->security_mode = arx_le16(r + 66);
     o->capabilities = arx_le32(r + 88);
     if (o->dialect == ARX_D_311) {
         unsigned int cnt = arx_le16(r + 70);
@@ -380,14 +386,14 @@ static inline void arx_ntlm_parse(const unsigned char *blob, int len, ArxNtlm *o
         flags = arx_le32(m + 20);
         tlen = arx_le16(m + 40);
         toff = arx_le32(m + 44);
+        if (toff > (unsigned int)(len - i) || tlen > (unsigned int)(len - i) - toff) {
+            return;
+        }
         if ((flags & 0x02000000u) != 0 && i + 56 <= len) {
             o->has_version = 1;
             o->os_major = m[48];
             o->os_minor = m[49];
             o->os_build = arx_le16(m + 50);
-        }
-        if (toff > (unsigned int)(len - i) || tlen > (unsigned int)(len - i) - toff) {
-            return;
         }
         for (p = 0; p + 4 <= tlen;) {
             unsigned int id = arx_le16(m + toff + p);
@@ -499,7 +505,10 @@ static inline int arx_smb1_session(int fd, int timeout_ms, ArxSmb1Sess *o) {
     return o->ok ? 1 : 0;
 }
 
-/* anonymous SMB1 negotiate + session setup on one connection; 1 = parsed */
+/* anonymous SMB1 negotiate + session setup on one connection.
+ * 1 = session reply parsed, 2 = SMB1 negotiated but the session reply was not
+ * usable (no reply, or not the expected status), 0 = SMB1 not accepted,
+ * -1 = no SMB response */
 static inline int arx_smb1_probe(AlScriptContext *ctx, ArxSmb1Neg *neg, ArxSmb1Sess *sess) {
     int fd = -1;
     int r = arx_smb1_negotiate(ctx, neg, &fd);
@@ -509,7 +518,7 @@ static inline int arx_smb1_probe(AlScriptContext *ctx, ArxSmb1Neg *neg, ArxSmb1S
     }
     r = arx_smb1_session(fd, ctx->timeout_ms, sess);
     close(fd);
-    return r;
+    return r == 1 ? 1 : 2;
 }
 
 /* ---- SMB2 SESSION_SETUP (NTLMSSP NEGOTIATE only) ---- */
