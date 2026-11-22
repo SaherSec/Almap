@@ -5,3 +5,7 @@ ssl-ccs-injection-2	ssl-ccs-injection	numbered copy merged
 ssl-poodle-2	ssl-poodle	numbered copy merged
 ssl-enum-ciphers-2	ssl-enum-ciphers	numbered copy merged
 ssl-dh-params-2	ssl-dh-params	numbered copy merged
+alscript	-	Rust support library of the removed Rust plugin port (not a plugin); the C loader is almap/c/alscript.c
+arsenal	-	Rust support library of the removed Rust plugin port (not a plugin); the C helpers are almap/plugins/arsenal_*.h
+smb	-	Rust support module of the removed Rust plugin port (not a plugin); the C helper is almap/plugins/arsenal_smb.h
+http-put	http-put	the Rust build had no unnumbered C source; its C copies are http-put-2 and http-put-3, which merge into http-put in the HTTP batch (not ported earlier)

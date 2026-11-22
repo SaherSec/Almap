@@ -113,7 +113,7 @@ Run `./almap --help` for every flag and its rules. The full guide is in **[docs/
 
 `--script` runs one plugin per scan, on every open port. There is no category or port-based selection yet.
 
-The `.so` files committed in `plugins/` are builds of an unfinished Rust port (`almap/rust_plugins/`), not of the C sources. To run the C plugins, build them with `tools/build_plugins.sh`.
+Plugins are built from the C sources in `almap/plugins/` with `tools/build_plugins.sh`; no prebuilt plugin binaries are committed.
 
 ## Writing a plugin
 

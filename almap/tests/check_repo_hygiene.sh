@@ -38,6 +38,22 @@ for p in \
     fi
 done
 
+# 3. The Rust plugin port is gone (C is the only plugin source). While the
+#    directory still exists every .rs must be accounted for: it has a C twin
+#    (same name, or with '-' written as '_') or is listed in
+#    docs/plans/plugin-renames.tsv.
+if [ -d almap/rust_plugins ]; then
+    for f in almap/rust_plugins/*.rs; do
+        n=$(basename "$f" .rs)
+        u=${n//-/_}
+        if [ ! -f "almap/plugins/$n.c" ] && [ ! -f "almap/plugins/$u.c" ] &&
+           ! grep -q "^$n$(printf '\t')" docs/plans/plugin-renames.tsv; then
+            fail "rust_plugins/$n.rs has no C twin and is not in plugin-renames.tsv"
+        fi
+    done
+    fail "almap/rust_plugins still exists (C sources are the only plugin source)"
+fi
+
 if [ "$fails" -ne 0 ]; then
     echo "hygiene: $fails check(s) failed" >&2
     exit 1
