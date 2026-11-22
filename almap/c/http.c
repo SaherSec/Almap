@@ -51,64 +51,126 @@ static int find_header_end(const unsigned char *buf, int len) {
     return -1;
 }
 
-static int has_content_length(const unsigned char *buf, int header_len,
-                              long *out_len) {
-    const char *needle = "Content-Length:";
-    const int nlen = (int)strlen(needle);
+static int ci_prefix(const unsigned char *p, int avail, const char *lit) {
     int i;
-    int j;
 
-    if (out_len != NULL) {
-        *out_len = 0;
-    }
-    if (header_len < nlen) {
-        return 0;
-    }
-    for (i = 0; i + nlen <= header_len; i++) {
-        int match = 1;
+    for (i = 0; lit[i] != '\0'; i++) {
+        unsigned char c;
 
-        for (j = 0; j < nlen; j++) {
-            char a = (char)buf[i + j];
-            char b = needle[j];
-
-            if (a != b) {
-                /* First char case-insensitive start: also try
-                 * lower-case "content-length:" by folding. */
-                if (a >= 'A' && a <= 'Z') {
-                    a = (char)(a - 'A' + 'a');
-                }
-                if (b >= 'A' && b <= 'Z') {
-                    b = (char)(b - 'A' + 'a');
-                }
-                if (a != b) {
-                    match = 0;
-                    break;
-                }
-            }
+        if (i >= avail) {
+            return 0;
         }
-        if (match) {
-            long val = 0;
-            int k = i + nlen;
-            int saw_digit = 0;
-
-            while (k < header_len && (buf[k] == ' ' || buf[k] == '\t')) {
-                k++;
-            }
-            while (k < header_len && buf[k] >= '0' && buf[k] <= '9') {
-                val = val * 10 + (buf[k] - '0');
-                saw_digit = 1;
-                k++;
-            }
-            if (saw_digit) {
-                if (out_len != NULL) {
-                    *out_len = val;
-                }
-                return 1;
-            }
+        c = p[i];
+        if (c >= 'A' && c <= 'Z') {
+            c = (unsigned char)(c - 'A' + 'a');
+        }
+        if (c != (unsigned char)lit[i]) {
             return 0;
         }
     }
-    return 0;
+    return 1;
+}
+
+/*
+ * Pure parser (parse_cl) for the Content-Length header of a request head (request
+ * line + headers, optionally with the blank line). Returns 0 when the
+ * header is absent, 1 with *out set (0..ALMAP_WEB_CL_MAX) when valid,
+ * -1 when malformed (non-digits, empty, negative), repeated with a
+ * different value, or larger than ALMAP_WEB_CL_MAX. Accumulation stops
+ * as soon as the cap is exceeded, so it cannot overflow.
+ */
+static int parse_cl(const unsigned char *hdr, int hdr_len, long *out,
+                    int *too_large) {
+    const int nlen = 14; /* strlen("content-length") */
+    int found = 0;
+    long result = 0;
+    int pos = 0;
+
+    if (out != NULL) {
+        *out = 0;
+    }
+    if (too_large != NULL) {
+        *too_large = 0;
+    }
+    if (hdr == NULL || hdr_len < 0) {
+        return -1;
+    }
+    /* Skip the request line, then examine each header line. */
+    while (pos < hdr_len && hdr[pos] != '\n') {
+        pos++;
+    }
+    if (pos < hdr_len) {
+        pos++;
+    }
+    while (pos < hdr_len) {
+        int eol = pos;
+        long val = 0;
+        int k;
+        int digits = 0;
+
+        while (eol < hdr_len && hdr[eol] != '\n') {
+            eol++;
+        }
+        if (hdr[pos] == '\r' || hdr[pos] == '\n') {
+            break; /* blank line: end of headers */
+        }
+        if (ci_prefix(hdr + pos, eol - pos, "content-length")) {
+            k = pos + nlen;
+            while (k < eol && (hdr[k] == ' ' || hdr[k] == '\t')) {
+                k++;
+            }
+            if (k < eol && hdr[k] == ':') {
+                k++;
+                while (k < eol && (hdr[k] == ' ' || hdr[k] == '\t')) {
+                    k++;
+                }
+                while (k < eol && hdr[k] >= '0' && hdr[k] <= '9') {
+                    /* Saturate at CL_MAX + 1: no overflow possible. */
+                    if (val <= ALMAP_WEB_CL_MAX) {
+                        val = val * 10 + (hdr[k] - '0');
+                    }
+                    if (val > ALMAP_WEB_CL_MAX) {
+                        val = ALMAP_WEB_CL_MAX + 1;
+                    }
+                    digits++;
+                    k++;
+                }
+                while (k < eol && (hdr[k] == ' ' || hdr[k] == '\t' ||
+                                   hdr[k] == '\r')) {
+                    k++;
+                }
+                /* More than 18 digits: treated as overflow (bad), not
+                 * as a plausible-but-too-large length (413). */
+                if (digits == 0 || digits > 18 || k != eol) {
+                    return -1;
+                }
+                if (found && val != result) {
+                    return -1;
+                }
+                found = 1;
+                result = val;
+            }
+        }
+        pos = eol + 1;
+    }
+    if (!found) {
+        return 0;
+    }
+    if (result > ALMAP_WEB_CL_MAX) {
+        if (too_large != NULL) {
+            *too_large = 1;
+        }
+        return -1;
+    }
+    if (out != NULL) {
+        *out = result;
+    }
+    return 1;
+}
+
+int almap_http_parse_content_length(const unsigned char *hdr, int hdr_len,
+                                    long *out) {
+    return parse_cl(hdr, hdr_len, out, NULL);
 }
 
 static void set_cloexec(int fd) {
@@ -204,6 +266,7 @@ int almap_http_read(int client_fd, unsigned char *buf, int cap) {
         int header_end;
         long clen = 0;
         int have_cl;
+        int too_large = 0;
 
         n = recv(client_fd, buf + total, (size_t)(cap - 1 - total), 0);
         if (n < 0) {
@@ -225,10 +288,17 @@ int almap_http_read(int client_fd, unsigned char *buf, int cap) {
         if (header_end < 0) {
             continue;
         }
-        have_cl = has_content_length(buf, header_end, &clen);
-        if (!have_cl) {
+        have_cl = parse_cl(buf, header_end, &clen, &too_large);
+        if (have_cl < 0) {
+            return too_large ? ALMAP_HTTP_ERR_TOO_LARGE
+                             : ALMAP_HTTP_ERR_BAD_LENGTH;
+        }
+        if (have_cl == 0) {
             /* GET and other header-only requests are complete. */
             break;
+        }
+        if ((long)header_end + clen > (long)(cap - 1)) {
+            return ALMAP_HTTP_ERR_TOO_LARGE;
         }
         if ((long)header_end + clen <= (long)total) {
             break;
@@ -237,6 +307,10 @@ int almap_http_read(int client_fd, unsigned char *buf, int cap) {
     }
     if (total == 0) {
         return -1;
+    }
+    if (total >= cap - 1 && find_header_end(buf, total) < 0) {
+        /* Head alone fills the buffer: oversize, not truncated. */
+        return ALMAP_HTTP_ERR_TOO_LARGE;
     }
     buf[total] = '\0';
     return total;

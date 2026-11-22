@@ -119,6 +119,7 @@ grep -q "#token=$TOKEN" /tmp/integration_web.log || fail "startup URL lacks #tok
 AUTH="Authorization: Bearer $TOKEN"
 echo "bind 127.0.0.1 + token OK" >&2
 
+JSON="Content-Type: application/json"
 code() { curl -s -o /tmp/web_sec.out -w "%{http_code}" "$@" 2>/dev/null; }
 SCAN_URL="http://$HOST:$WEB_PORT/api/scan"
 scan_body() { echo "{\"targets\":\"$HOST\",\"ports\":\"$SCAN_PORT\",\"scan_type\":\"connect\",\"timeout\":1000${1:-}}"; }
@@ -137,16 +138,28 @@ echo "token required -> 401 OK" >&2
 [ "$(code -H "$AUTH" -H "Host: localhost:$WEB_PORT" "http://$HOST:$WEB_PORT/api/status")" = "200" ] || fail "Host localhost refused"
 echo "Host/Origin checks OK" >&2
 
+# Request size and Content-Type.
+BIG=$(python3 -c 'print("{\"targets\":\"" + "a"*9000 + "\"}")')
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$BIG")" = "413" ] || fail "9000-byte body not 413"
+grep -q '"error":"request too large"' /tmp/web_sec.out || fail "413 body: $(cat /tmp/web_sec.out)"
+[ "$(code -H "$AUTH" -H "$JSON" -H "Content-Length: 99999999999999999999999" -X POST "$SCAN_URL" -d "{}")" = "400" ] || fail "huge Content-Length not 400"
+grep -q '"error":"bad request"' /tmp/web_sec.out || fail "400 body: $(cat /tmp/web_sec.out)"
+[ "$(code -H "$AUTH" -H "Content-Type: text/plain" -X POST "$SCAN_URL" -d "$(scan_body)")" = "415" ] || fail "text/plain scan not 415"
+grep -q '{"error":"Content-Type must be application/json"}' /tmp/web_sec.out || fail "415 body: $(cat /tmp/web_sec.out)"
+[ "$(code -H "$AUTH" -X POST "$SCAN_URL" -d "$(scan_body)")" = "415" ] || fail "form-encoded scan not 415"
+[ "$(code -H "$AUTH" -H "Content-Type: Application/JSON; charset=utf-8" -X POST "$SCAN_URL" -d '{"ports":"80"}')" = "400" ] || fail "JSON with charset param refused as non-JSON"
+echo "request size / Content-Type checks OK" >&2
+
 # Script: plugin names only.
 for bad in "$TMPD/evil.so" "../plugins/sample_banner" "plugins/sample_banner.so" "a..b" ".hidden"; do
-    [ "$(code -H "$AUTH" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"$bad\"")")" = "400" ] || fail "script '$bad' not refused"
+    [ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"$bad\"")")" = "400" ] || fail "script '$bad' not refused"
     grep -q "plugin name" /tmp/web_sec.out || fail "script '$bad' error message: $(cat /tmp/web_sec.out)"
 done
-[ "$(code -H "$AUTH" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"no_such_plugin\"")")" = "400" ] || fail "unknown plugin not 400"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"no_such_plugin\"")")" = "400" ] || fail "unknown plugin not 400"
 grep -q "unknown plugin" /tmp/web_sec.out || fail "unknown plugin message: $(cat /tmp/web_sec.out)"
-[ "$(code -H "$AUTH" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"zz-integration-web-escape\"")")" = "400" ] || fail "symlink escaping plugins/ not refused"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"zz-integration-web-escape\"")")" = "400" ] || fail "symlink escaping plugins/ not refused"
 [ ! -e "$MARKER" ] || fail "a .so outside plugins/ was loaded (constructor ran)"
-[ "$(code -H "$AUTH" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"sample_banner\"")")" = "200" ] || fail "valid plugin name refused: $(cat /tmp/web_sec.out)"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d "$(scan_body ",\"script\":\"sample_banner\"")")" = "200" ] || fail "valid plugin name refused: $(cat /tmp/web_sec.out)"
 echo "script name-only checks OK" >&2
 
 # Health check: the server must respond on the requested port.

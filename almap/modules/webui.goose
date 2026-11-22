@@ -192,6 +192,16 @@ fn header_value(req: const u8[:], name: const u8[:], out: u8[>..]&) -> bool {
     return false;
 }
 
+// True when the Content-Type media type is application/json
+// (case-insensitive; parameters such as "; charset=utf-8" are allowed).
+fn json_content_type(req: const u8[:]) -> bool {
+    var ct: u8[>..] = [];
+    if !header_value(req, "Content-Type", ct) { return false; }
+    var end = position(ct, ';');
+    if end < 0 { end = ct.len; }
+    return eq_ci(trim(ct[..end]), "application/json");
+}
+
 fn is_alnum(c: u8) -> bool {
     if c >= 'a' && c <= 'z' { return true; }
     if c >= 'A' && c <= 'Z' { return true; }
@@ -376,6 +386,8 @@ fn status_text(code: i64) -> const u8[:] {
     if code == 401 { return "Unauthorized"; }
     if code == 403 { return "Forbidden"; }
     if code == 404 { return "Not Found"; }
+    if code == 413 { return "Payload Too Large"; }
+    if code == 415 { return "Unsupported Media Type"; }
     return "Internal Server Error";
 }
 
@@ -750,6 +762,17 @@ fn serve(port: i64, bind_addr: const u8[:]) -> bool {
         if client < 0 { continue; }
         var req_buf: u8[8192] = [0; 8192];
         let n = almap_http_read(client, req_buf[0], req_buf.len as i32);
+        if n == -413 || n == -400 {
+            var err: u8[>..] = [];
+            if n == -413 {
+                error_json(err, "request too large");
+            } else {
+                error_json(err, "bad request");
+            }
+            send_response(client, 0 - n, "application/json", err);
+            almap_http_close(client);
+            continue;
+        }
         if n <= 0 {
             almap_http_close(client);
             continue;
@@ -782,6 +805,13 @@ fn serve(port: i64, bind_addr: const u8[:]) -> bool {
             status_json(body);
             send_response(client, 200, "application/json", body);
         } else if is_scan_request(method, path) {
+            if !json_content_type(req) {
+                var err: u8[>..] = [];
+                error_json(err, "Content-Type must be application/json");
+                send_response(client, 415, "application/json", err);
+                almap_http_close(client);
+                continue;
+            }
             handle_scan(client, extract_body(req));
         } else if is_index_request(method, path) {
             var body: u8[>..] = [];

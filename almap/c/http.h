@@ -24,7 +24,8 @@ extern "C" {
  *
  * almap_http_read(client_fd, buf, cap):
  *   Reads one HTTP request into buf (NUL-terminated). Returns total
- *   bytes read (> 0) or -1 when no bytes arrive (timeout/EOF/error).
+ *   bytes read (> 0), -400/-413 (see above), or -1 when no bytes
+ *   arrive (timeout/EOF/error).
  *   Sets a 5s SO_RCVTIMEO. Reads until the header terminator
  *   (CRLFCRLF) plus Content-Length body bytes are present, or until
  *   timeout/EOF, up to cap-1 bytes. buf must hold at least cap bytes,
@@ -70,6 +71,29 @@ extern "C" {
  * Use only on networks you own or have permission to scan. The Web UI
  * spawns full ALmap scans with the server process privileges.
  */
+
+/* Largest request (head + body) the Web UI accepts, and the largest
+ * Content-Length it will honour. */
+#define ALMAP_WEB_REQ_CAP 8192
+#define ALMAP_WEB_CL_MAX ALMAP_WEB_REQ_CAP
+
+/* Negative almap_http_read results (HTTP status codes, negated). */
+#define ALMAP_HTTP_ERR_TOO_LARGE (-413)
+#define ALMAP_HTTP_ERR_BAD_LENGTH (-400)
+
+/*
+ * almap_http_parse_content_length(hdr, hdr_len, out): pure parser for
+ * the Content-Length header in a request head. Returns 0 if absent,
+ * 1 if valid (*out in 0..ALMAP_WEB_CL_MAX), -1 if malformed,
+ * overflowing, conflicting or too large.
+ *
+ * almap_http_read also returns ALMAP_HTTP_ERR_BAD_LENGTH (-400) for a
+ * -1 parse and ALMAP_HTTP_ERR_TOO_LARGE (-413) when head + declared
+ * body do not fit in cap-1 bytes (or the head alone fills the buffer).
+ * Other failures stay -1.
+ */
+int almap_http_parse_content_length(const unsigned char *hdr, int hdr_len,
+                                    long *out);
 
 int almap_http_listen(const char *bind_addr, int port);
 int almap_http_accept(int listen_fd);
