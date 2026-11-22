@@ -74,7 +74,7 @@ static int ar_pg_start(AlScriptContext *ctx, const char *user,
     return fd;
 }
 
-static int ar_pg_login(AlScriptContext *ctx, const char *user,
+static inline int ar_pg_login(AlScriptContext *ctx, const char *user,
                        const char *pass, char *msg, size_t cap) {
     unsigned char hdr[5];
     unsigned char buf[512];

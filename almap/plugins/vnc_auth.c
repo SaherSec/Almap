@@ -48,7 +48,6 @@ static void append_auth(char *dst, size_t cap, const char *name,
 
 int almap_script_run(AlScriptContext *ctx) {
     int fd;
-    int n;
     int i;
     int minor = 8;
     char banner[16];

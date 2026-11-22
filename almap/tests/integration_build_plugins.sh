@@ -3,6 +3,7 @@
 # (a) a full build succeeds and builds every plugins/*.c,
 # (b) one broken plugin is reported but does not stop the others,
 # (c) --clean removes .so files that have no .c,
+# (d) the whole tree builds warning-free (-Werror),
 # (e) naming a plugin builds only that one,
 # (g) an unknown plugin name is a failure.
 # No network, no root, no listeners.
@@ -55,6 +56,16 @@ bash tools/build_plugins.sh --clean --out "$TMPD/c" http_title >"$TMPD/c.log" 2>
 [ ! -e "$TMPD/c/stale.so" ] || fail "(c) stale.so was not removed"
 [ -f "$TMPD/c/http_title.so" ] || fail "(c) http_title.so missing"
 echo "ok (c): --clean removed stale.so"
+
+# (d) the whole tree builds warning-free under -Werror
+bash tools/build_plugins.sh --werror --out "$TMPD/w" >"$TMPD/d.log" 2>&1
+rc=$?
+if [ "$rc" -ne 0 ]; then
+    grep -c 'warning:\|error:' "$TMPD/d.log" >&2
+    grep 'FAILED' "$TMPD/d.log" | head -5 >&2
+    fail "(d) --werror build exited $rc, want 0"
+fi
+echo "ok (d): warning-free under -Werror"
 
 # (e) a named plugin builds only that plugin
 n=$(ls "$TMPD"/c/*.so | wc -l)

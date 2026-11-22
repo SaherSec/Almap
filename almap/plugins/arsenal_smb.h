@@ -32,7 +32,7 @@ static int ar_smb_recv_nb(int fd, unsigned char *out, size_t cap,
     return (int)len;
 }
 
-static int ar_smb1_negotiate(AlScriptContext *ctx, unsigned char *resp,
+static inline int ar_smb1_negotiate(AlScriptContext *ctx, unsigned char *resp,
                              size_t cap) {
     static const char dialects[] =
         "\x02PC NETWORK PROGRAM 1.0\x00"
@@ -95,7 +95,7 @@ static int ar_smb1_negotiate(AlScriptContext *ctx, unsigned char *resp,
     return n + 4;
 }
 
-static int ar_smb2_negotiate(AlScriptContext *ctx, unsigned char *resp,
+static inline int ar_smb2_negotiate(AlScriptContext *ctx, unsigned char *resp,
                              size_t cap) {
     unsigned char req[160];
     static const unsigned short dialects[] = {
@@ -148,14 +148,14 @@ static int ar_smb2_negotiate(AlScriptContext *ctx, unsigned char *resp,
     return n + 4;
 }
 
-static unsigned int ar_smb1_dialect(const unsigned char *resp, int len) {
+static inline unsigned int ar_smb1_dialect(const unsigned char *resp, int len) {
     if (resp == NULL || len < 4 + 35) {
         return 0xFFFF;
     }
     return (unsigned int)resp[4 + 33] | ((unsigned int)resp[4 + 34] << 8);
 }
 
-static unsigned int ar_smb2_dialect(const unsigned char *resp, int len) {
+static inline unsigned int ar_smb2_dialect(const unsigned char *resp, int len) {
     if (resp == NULL || len < 4 + 74) {
         return 0xFFFF;
     }
@@ -166,7 +166,7 @@ static unsigned int ar_smb2_dialect(const unsigned char *resp, int len) {
     return (unsigned int)resp[72] | ((unsigned int)resp[73] << 8);
 }
 
-static const char *ar_smb1_dialect_name(unsigned int d) {
+static inline const char *ar_smb1_dialect_name(unsigned int d) {
     switch (d) {
         case 0: return "PC NETWORK PROGRAM 1.0";
         case 1: return "LANMAN1.0";
@@ -180,7 +180,7 @@ static const char *ar_smb1_dialect_name(unsigned int d) {
     }
 }
 
-static const char *ar_smb2_dialect_name(unsigned int d) {
+static inline const char *ar_smb2_dialect_name(unsigned int d) {
     switch (d) {
         case 0x0202: return "SMB 2.0.2";
         case 0x0210: return "SMB 2.1";
@@ -191,14 +191,14 @@ static const char *ar_smb2_dialect_name(unsigned int d) {
     }
 }
 
-static int ar_smb1_security_mode(const unsigned char *resp, int len) {
+static inline int ar_smb1_security_mode(const unsigned char *resp, int len) {
     if (resp == NULL || len < 4 + 36) {
         return -1;
     }
     return (int)resp[4 + 35];
 }
 
-static int ar_smb2_security_mode(const unsigned char *resp, int len) {
+static inline int ar_smb2_security_mode(const unsigned char *resp, int len) {
     if (resp == NULL || len < 4 + 72) {
         return -1;
     }
@@ -309,7 +309,7 @@ static int ar_smb1_session_setup(int fd, unsigned int *uid,
     return (int)status;
 }
 
-static int ar_smb1_tree_connect(int fd, unsigned int uid, const char *server,
+static inline int ar_smb1_tree_connect(int fd, unsigned int uid, const char *server,
                                 const char *share, const char *service,
                                 unsigned int *tid, int timeout_ms) {
     unsigned char req[512];
@@ -376,7 +376,7 @@ static int ar_smb1_tree_connect(int fd, unsigned int uid, const char *server,
     return (int)status;
 }
 
-static int ar_smb1_open_session(AlScriptContext *ctx, int *outfd,
+static inline int ar_smb1_open_session(AlScriptContext *ctx, int *outfd,
                                 unsigned int *uid, char *os, size_t os_cap,
                                 char *lan, size_t lan_cap) {
     unsigned char resp[2048];

@@ -77,7 +77,7 @@ static int ar_dns_make_query(const char *name, unsigned int qtype,
     return 12 + nlen + 4;
 }
 
-static int ar_dns_udp(AlScriptContext *ctx, const char *name,
+static inline int ar_dns_udp(AlScriptContext *ctx, const char *name,
                       unsigned int qtype, unsigned int flags,
                       char *resp, size_t cap) {
     unsigned char req[512];
@@ -126,7 +126,7 @@ static int ar_dns_tcp_recv(int fd, char *out, size_t cap, int timeout_ms) {
     return (int)len;
 }
 
-static int ar_dns_tcp_query(AlScriptContext *ctx, const char *name,
+static inline int ar_dns_tcp_query(AlScriptContext *ctx, const char *name,
                             unsigned int qtype, unsigned int flags,
                             char *resp, size_t cap) {
     unsigned char req[512];
@@ -151,7 +151,7 @@ static int ar_dns_tcp_query(AlScriptContext *ctx, const char *name,
     return got;
 }
 
-static int ar_dns_rcode(const char *resp, int len) {
+static inline int ar_dns_rcode(const char *resp, int len) {
     const unsigned char *p = (const unsigned char *)resp;
 
     if (p == NULL || len < 4) {
@@ -240,7 +240,7 @@ static int ar_dns_name_at(const unsigned char *base, int len, int off,
 }
 
 /* Dump up to max answers as "name TYPE value" lines. */
-static int ar_dns_dump_answers(AlScriptContext *ctx, const char *resp,
+static inline int ar_dns_dump_answers(AlScriptContext *ctx, const char *resp,
                                int len, int max) {
     const unsigned char *base = (const unsigned char *)resp;
     int qd;

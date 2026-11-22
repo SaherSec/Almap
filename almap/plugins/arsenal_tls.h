@@ -29,7 +29,7 @@ static const unsigned short ar_tls_cbc_ciphers[] = {
     0x0023, 0x0009, 0x0006, 0x0003
 };
 
-static int ar_tls_is_cbc(unsigned int cipher) {
+static inline int ar_tls_is_cbc(unsigned int cipher) {
     size_t i;
 
     for (i = 0; i < sizeof(ar_tls_cbc_ciphers) / sizeof(ar_tls_cbc_ciphers[0]);
@@ -41,7 +41,7 @@ static int ar_tls_is_cbc(unsigned int cipher) {
     return 0;
 }
 
-static const char *ar_tls_cipher_name(unsigned int c) {
+static inline const char *ar_tls_cipher_name(unsigned int c) {
     switch (c) {
         case 0xC02F: return "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
         case 0xC030: return "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384";
@@ -71,7 +71,7 @@ static const char *ar_tls_cipher_name(unsigned int c) {
     }
 }
 
-static const char *ar_tls_version_name(unsigned int v) {
+static inline const char *ar_tls_version_name(unsigned int v) {
     switch (v) {
         case 0x0300: return "SSLv3";
         case 0x0301: return "TLSv1.0";
@@ -227,7 +227,7 @@ static int ar_tls_parse_server_hello(const unsigned char *p, int len,
     return 0;
 }
 
-static int ar_tls_probe(AlScriptContext *ctx, unsigned int version,
+static inline int ar_tls_probe(AlScriptContext *ctx, unsigned int version,
                         const unsigned short *ciphers, int nc,
                         unsigned int *selver, unsigned int *selcipher,
                         int heartbeat, unsigned char *resp, size_t cap) {
@@ -254,7 +254,7 @@ static int ar_tls_probe(AlScriptContext *ctx, unsigned int version,
     return 1;
 }
 
-static int ar_tls_heartbleed(AlScriptContext *ctx, unsigned char *resp,
+static inline int ar_tls_heartbleed(AlScriptContext *ctx, unsigned char *resp,
                              size_t cap) {
     unsigned char hello[1200];
     unsigned char hb[16];
@@ -307,7 +307,7 @@ static int ar_tls_heartbleed(AlScriptContext *ctx, unsigned char *resp,
     return 0;
 }
 
-static int ar_tls_ccs_test(AlScriptContext *ctx, unsigned char *resp,
+static inline int ar_tls_ccs_test(AlScriptContext *ctx, unsigned char *resp,
                            size_t cap, unsigned int *selver,
                            unsigned int *selcipher) {
     unsigned char hello[1200];
@@ -375,7 +375,7 @@ static int ar_tls_ccs_test(AlScriptContext *ctx, unsigned char *resp,
     return 1;
 }
 
-static int ar_tls_dh_bits(AlScriptContext *ctx, int *bits,
+static inline int ar_tls_dh_bits(AlScriptContext *ctx, int *bits,
                           unsigned int *group_len) {
     static const unsigned short dhe_ciphers[] = {
         0x009E, 0x009F, 0x0067, 0x006B, 0x0033, 0x0039, 0x0016

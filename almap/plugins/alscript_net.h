@@ -21,7 +21,7 @@
 #include <poll.h>
 #include <sys/socket.h>
 
-static int as_connect(AlScriptContext *ctx) {
+static inline int as_connect(AlScriptContext *ctx) {
     int fd;
     struct sockaddr_in addr;
     int flags;
@@ -68,7 +68,7 @@ static int as_connect(AlScriptContext *ctx) {
     return fd;
 }
 
-static int as_send_all(int fd, const void *data, size_t len, int timeout_ms) {
+static inline int as_send_all(int fd, const void *data, size_t len, int timeout_ms) {
     const char *p = (const char *)data;
     size_t sent = 0;
 
@@ -100,7 +100,7 @@ static int as_send_all(int fd, const void *data, size_t len, int timeout_ms) {
     return 0;
 }
 
-static int as_recv_exact(int fd, void *data, size_t len, int timeout_ms) {
+static inline int as_recv_exact(int fd, void *data, size_t len, int timeout_ms) {
     unsigned char *p = (unsigned char *)data;
     size_t got = 0;
 
@@ -136,7 +136,7 @@ static int as_recv_exact(int fd, void *data, size_t len, int timeout_ms) {
     return 0;
 }
 
-static int as_recv_all(int fd, char *buf, size_t cap, int timeout_ms) {
+static inline int as_recv_all(int fd, char *buf, size_t cap, int timeout_ms) {
     size_t total = 0;
 
     if (buf == NULL || cap < 2) {
@@ -175,7 +175,7 @@ static int as_recv_all(int fd, char *buf, size_t cap, int timeout_ms) {
     return (int)total;
 }
 
-static int as_recv_line(int fd, char *buf, size_t cap, int timeout_ms) {
+static inline int as_recv_line(int fd, char *buf, size_t cap, int timeout_ms) {
     size_t total = 0;
 
     if (buf == NULL || cap < 2) {
@@ -273,7 +273,7 @@ static int as_caseeq_n(const char *a, const char *b, size_t n) {
 }
 
 /* Extract a header value (case-insensitive name, line-anchored). */
-static int as_find_header(const char *resp, const char *name,
+static inline int as_find_header(const char *resp, const char *name,
                           char *out, size_t outcap) {
     const char *p;
     size_t nlen;
@@ -320,7 +320,7 @@ static int as_find_header(const char *resp, const char *name,
     return 0;
 }
 
-static const char *as_http_body(const char *resp) {
+static inline const char *as_http_body(const char *resp) {
     const char *p;
 
     if (resp == NULL) {
@@ -337,7 +337,7 @@ static const char *as_http_body(const char *resp) {
     return NULL;
 }
 
-static void as_ip_text(unsigned int ip, char *out, size_t cap) {
+static inline void as_ip_text(unsigned int ip, char *out, size_t cap) {
     struct in_addr a;
 
     a.s_addr = htonl(ip);
@@ -351,7 +351,7 @@ static void as_ip_text(unsigned int ip, char *out, size_t cap) {
 /* Send one UDP datagram to (ctx->target_ip, ctx->port) and return the
  * first reply. Returns the reply length or -1 on send/timeout error.
  * resp is always NUL-terminated when cap >= 1. */
-static int as_udp_exchange(AlScriptContext *ctx, const void *req, size_t reqlen,
+static inline int as_udp_exchange(AlScriptContext *ctx, const void *req, size_t reqlen,
                            char *resp, size_t cap, int timeout_ms) {
     int fd;
     int n;

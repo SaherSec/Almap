@@ -20,7 +20,7 @@ int almap_script_run(AlScriptContext *ctx) {
         ar_out(ctx, "iot-ipmi-rmcp-5: no UDP reply");
         return 0;
     }
-    if (n >= 4 && resp[0] == 0x06 && resp[1] == 0x00 && resp[2] == 0xff && resp[3] == 0x07) {
+    if (n >= 4 && resp[0] == 0x06 && resp[1] == 0x00 && (unsigned char)resp[2] == 0xff && resp[3] == 0x07) {
         ar_out(ctx, "iot-ipmi-rmcp-5: expected reply seen (%d bytes)", n);
     } else {
         ar_out(ctx, "iot-ipmi-rmcp-5: unexpected reply (%d bytes)", n);

@@ -49,7 +49,7 @@ static int ar_mssql_read_packet(int fd, unsigned char *out, size_t cap,
     return (int)body;
 }
 
-static int ar_mssql_prelogin(AlScriptContext *ctx, char *version,
+static inline int ar_mssql_prelogin(AlScriptContext *ctx, char *version,
                              size_t vcap, char *instance, size_t icap) {
     unsigned char pkt[128];
     unsigned char resp[512];
@@ -170,7 +170,7 @@ static void ar_mssql_field(unsigned char *p, int pair, const char *s,
     *voff += len * 2;
 }
 
-static int ar_mssql_empty_login(AlScriptContext *ctx, char *msg,
+static inline int ar_mssql_empty_login(AlScriptContext *ctx, char *msg,
                                 size_t msgcap) {
     unsigned char login[1024];
     unsigned char pkt[1200];

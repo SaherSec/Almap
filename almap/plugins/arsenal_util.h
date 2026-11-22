@@ -39,7 +39,7 @@ static int ar_valid(AlScriptContext *ctx) {
     return 1;
 }
 
-static void ar_out(AlScriptContext *ctx, const char *fmt, ...) {
+static inline void ar_out(AlScriptContext *ctx, const char *fmt, ...) {
     va_list ap;
 
     if (ctx == NULL || ctx->output_buf == NULL || ctx->output_max < 2) {
@@ -51,7 +51,7 @@ static void ar_out(AlScriptContext *ctx, const char *fmt, ...) {
     ctx->output_buf[ctx->output_max - 1] = '\0';
 }
 
-static void ar_append(AlScriptContext *ctx, const char *fmt, ...) {
+static inline void ar_append(AlScriptContext *ctx, const char *fmt, ...) {
     size_t used;
     va_list ap;
 
@@ -101,11 +101,11 @@ static const char *ar_stristr(const char *hay, const char *needle) {
     return NULL;
 }
 
-static int ar_contains_ci(const char *hay, const char *needle) {
+static inline int ar_contains_ci(const char *hay, const char *needle) {
     return ar_stristr(hay, needle) != NULL;
 }
 
-static int ar_starts_ci(const char *s, const char *prefix) {
+static inline int ar_starts_ci(const char *s, const char *prefix) {
     size_t i;
 
     if (s == NULL || prefix == NULL) {
@@ -121,7 +121,7 @@ static int ar_starts_ci(const char *s, const char *prefix) {
     return 1;
 }
 
-static void ar_clean(char *s) {
+static inline void ar_clean(char *s) {
     size_t i;
 
     if (s == NULL) {
@@ -193,19 +193,19 @@ static int ar_http_request(AlScriptContext *ctx, const char *method,
     return got;
 }
 
-static int ar_http_get(AlScriptContext *ctx, const char *path,
+static inline int ar_http_get(AlScriptContext *ctx, const char *path,
                        char *resp, size_t cap) {
     return ar_http_request(ctx, "GET", path, NULL, NULL, NULL, NULL,
                            resp, cap);
 }
 
-static int ar_http_head(AlScriptContext *ctx, const char *path,
+static inline int ar_http_head(AlScriptContext *ctx, const char *path,
                         char *resp, size_t cap) {
     return ar_http_request(ctx, "HEAD", path, NULL, NULL, NULL, NULL,
                            resp, cap);
 }
 
-static int ar_http_post(AlScriptContext *ctx, const char *path,
+static inline int ar_http_post(AlScriptContext *ctx, const char *path,
                         const char *body, const char *ctype,
                         char *resp, size_t cap) {
     return ar_http_request(ctx, "POST", path, NULL, NULL, body, ctype,
@@ -224,19 +224,19 @@ static int ar_http_status(const char *resp) {
     return 0;
 }
 
-static const char *ar_http_body(const char *resp) {
+static inline const char *ar_http_body(const char *resp) {
     const char *p = as_http_body(resp);
 
     return (p != NULL) ? p : "";
 }
 
-static int ar_http_ok(const char *resp) {
+static inline int ar_http_ok(const char *resp) {
     int code = ar_http_status(resp);
 
     return code >= 200 && code < 400;
 }
 
-static int ar_http_header(const char *resp, const char *name,
+static inline int ar_http_header(const char *resp, const char *name,
                           char *out, size_t cap) {
     return as_find_header(resp, name, out, cap);
 }
@@ -273,7 +273,7 @@ static void ar_b64(const unsigned char *in, size_t len, char *out,
     out[o] = '\0';
 }
 
-static void ar_basic_auth(const char *user, const char *pass,
+static inline void ar_basic_auth(const char *user, const char *pass,
                           char *out, size_t cap) {
     char raw[256];
     char enc[512];
@@ -323,7 +323,7 @@ static int ar_ftp_reply(int fd, char *out, size_t cap, int timeout_ms) {
     return code;
 }
 
-static int ar_ftp_open(AlScriptContext *ctx, char *banner, size_t cap) {
+static inline int ar_ftp_open(AlScriptContext *ctx, char *banner, size_t cap) {
     int fd = as_connect(ctx);
 
     if (fd < 0) {
@@ -350,7 +350,7 @@ static int ar_ftp_cmd(int fd, const char *cmd, char *out, size_t cap,
     return ar_ftp_reply(fd, out, cap, timeout_ms);
 }
 
-static int ar_ftp_login(int fd, const char *user, const char *pass,
+static inline int ar_ftp_login(int fd, const char *user, const char *pass,
                         char *out, size_t cap, int timeout_ms) {
     char cmd[256];
     int code;
@@ -367,12 +367,12 @@ static int ar_ftp_login(int fd, const char *user, const char *pass,
     return ar_ftp_cmd(fd, cmd, out, cap, timeout_ms);
 }
 
-static const char *ar_brute_words[10] = {
+static const char *ar_brute_words[10] __attribute__((unused)) = {
     "admin", "root", "password", "123456", "admin123",
     "root123", "toor", "letmein", "qwerty", "test"
 };
 
-static int ar_parse_uint(const char *s) {
+static inline int ar_parse_uint(const char *s) {
     if (s == NULL) {
         return -1;
     }

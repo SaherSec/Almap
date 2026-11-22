@@ -164,7 +164,7 @@ static int ar_ssh_build_kexinit(unsigned char *out, size_t cap) {
 }
 
 /* Return field 0..9 from a KEXINIT payload, 0 on success. */
-static int ar_ssh_kex_field(const unsigned char *payload, int len, int field,
+static inline int ar_ssh_kex_field(const unsigned char *payload, int len, int field,
                             char *out, size_t cap) {
     int off = 17;
     int i;
@@ -224,7 +224,7 @@ static int ar_ssh_get_kexinit(int fd, unsigned char *payload, size_t cap,
     return -1;
 }
 
-static int ar_ssh_auth_none(int fd, const char *user, char *methods,
+static inline int ar_ssh_auth_none(int fd, const char *user, char *methods,
                             size_t cap, int timeout_ms) {
     unsigned char pkt[512];
     unsigned char resp[1024];
@@ -275,7 +275,7 @@ static int ar_ssh_auth_none(int fd, const char *user, char *methods,
     return -1;
 }
 
-static int ar_ssh_auth_password(int fd, const char *user, const char *pass,
+static inline int ar_ssh_auth_password(int fd, const char *user, const char *pass,
                                 char *methods, size_t cap, int timeout_ms) {
     unsigned char pkt[1024];
     unsigned char resp[1024];
