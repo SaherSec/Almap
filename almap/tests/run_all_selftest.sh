@@ -66,6 +66,7 @@ if unshare -Urn true 2>/dev/null && command -v ip >/dev/null 2>&1; then
     OUT=$(unshare -Urn bash -c 'ip link set lo up; bash tests/run_all.sh --no-skips --only integration_syn' 2>&1); rc=$?
     [ "$rc" -eq 0 ] && echo "$OUT" | grep -q '^PASS integration_syn.sh'
     check "in a namespace: integration_syn.sh PASSes with --no-skips" $?
+    if ! echo "$OUT" | grep -q '^PASS integration_syn.sh'; then echo "--- namespace run output (rc=$rc) ---" >&2; echo "$OUT" | sed 's/^/    | /' >&2; fi
 else
     echo "note: unshare -Urn or ip unavailable; the namespace check is skipped"
 fi
