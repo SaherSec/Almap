@@ -1,0 +1,32 @@
+# Neutral control targets used by every family. Ports are published on
+# 127.0.0.1 only; the lab password exists only inside this local container.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-control
+spec:
+  restartPolicy: Never
+  containers:
+    - name: http
+      image: docker.io/library/nginx@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8
+      ports:
+        - containerPort: 80
+          hostPort: 19001
+          hostIP: 127.0.0.1
+    - name: ssh
+      image: docker.io/linuxserver/openssh-server@sha256:7bd52bcb55b7cfbdae80c756403f37652b05b86b240f73a44f07ce40ac2692bf
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: USER_NAME
+          value: labuser
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: labonly
+      ports:
+        - containerPort: 2222
+          hostPort: 19002
+          hostIP: 127.0.0.1

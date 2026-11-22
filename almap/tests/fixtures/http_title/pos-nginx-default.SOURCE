@@ -1,0 +1,5 @@
+kind: captured
+url: docker://docker.io/library/nginx@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8
+retrieved: 2026-11-22
+shows: nginx 1.27.5 default site: HTTP/1.1 200 with Server: nginx/1.27.5 and <title>Welcome to nginx!</title>
+basis: captured byte for byte with a plain GET / from a container of the pinned image started by the lab (tests/lab/control); no bytes were edited

@@ -1,0 +1,4 @@
+# check	role	port	expect   (match:ERE | nomatch:ERE | fixture:CASE:match:ERE | fixture:CASE:nomatch:ERE; port may be udp:N)
+http_title	control	19001	match:Welcome to nginx
+ssh_version	control	19002	match:SSH-2\.0-OpenSSH
+http_title	fixture	19090	fixture:pos-nginx-default:match:Welcome to nginx
