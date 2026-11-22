@@ -1,0 +1,52 @@
+name: CI
+
+# Builds the scanner and the plugins and runs every test. The raw-socket tests
+# (SYN, UDP, OS fingerprinting) run for real here because the job is root, and
+# --no-skips turns any test that could not run into a failure that names it,
+# so a skipped test can never hide inside a green result.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOOSE_VERSION: v2026.3
+  # sha256 of goose-v2026.3-linux-x64.tar.gz (the toolchain is not built from source here)
+  GOOSE_SHA256: 06ac30284338269d3996d457412bf4f2b47c1f9a5601de65b6317187fe78d5c9
+
+jobs:
+  test:
+    name: build and test (raw-socket tests included)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc libc6-dev curl python3 iproute2 netcat-openbsd
+
+      - name: Install Goose (pinned release, checksum verified)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o goose.tar.gz "https://github.com/aardappel/goose/releases/download/${GOOSE_VERSION}/goose-${GOOSE_VERSION}-linux-x64.tar.gz"
+          echo "${GOOSE_SHA256}  goose.tar.gz" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/goose"
+          tar -xzf goose.tar.gz -C "${RUNNER_TEMP}/goose" --strip-components=1
+          "${RUNNER_TEMP}/goose/goose" --help >/dev/null 2>&1 || true
+          echo "GOOSE_HOME=${RUNNER_TEMP}/goose" >> "${GITHUB_ENV}"
+
+      - name: Run every test (a skipped test fails the run)
+        working-directory: almap
+        run: sudo -E bash tests/run_all.sh --no-skips
