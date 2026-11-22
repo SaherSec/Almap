@@ -1,2 +1,179 @@
-# Almap
-Just a tool
+<div align="center">
+
+# ALmap
+
+**A fast, auditable network scanner for Linux, written in Goose and C.**
+
+Async connect engine · Raw SYN/UDP · OS fingerprinting · Native C plugins · JSON/XML output · Built-in Web UI
+
+`v5.0.0` · Linux x86-64 · MIT
+
+</div>
+
+---
+
+ALmap is a network scanner with a small core you can read. The scanning logic lives in [Goose](https://github.com/aardappel/goose), a memory-safe systems language with no heap and no garbage collector. A thin C layer owns sockets, raw packets, threads and plugin loading.
+
+The goal is not to replace Nmap everywhere. It is a scanner that is fast and predictable, and simple enough to read end to end.
+
+```console
+$ ./almap -t 192.168.1.0/24 -p 1-1024 --fast --timeout 500
+$ sudo ./almap -t 192.168.1.10 -p 22,80,443 --scan syn --os --service --json
+```
+
+## Features
+
+| | |
+|---|---|
+| **Async engine** | `--fast` runs one non-blocking `epoll` loop with up to 10,000 connects in flight. A token-bucket limits the rate. No root needed. |
+| **Scan modes** | TCP connect, raw SYN, raw UDP and host discovery (TCP ping plus ICMP echo). |
+| **OS fingerprinting** | Nmap-style T1–T7 + U1 probe sequence. Reads TTL, window, ISN, TCP options and IP-ID behaviour, then matches against an OS database. |
+| **Service detection** | Built-in heuristics plus a runtime regex database. You can import Nmap's full service-probe set (8k+ rules). |
+| **AlScript plugins** | Plain `.so` files that export one C function. No VM and no Lua. Ships with 623 C plugins in `almap/plugins/` (for example `http_title`, `http_methods`, `ssh_version`, `ftp_anon` and `redis_info`). |
+| **Evasion** | IP fragmentation, custom MTU, up to 5 decoys and source-MAC spoofing. |
+| **Output** | Text, JSON, tab-separated table or XML. The order is always the same: targets as given, hosts ascending, ports as given. |
+| **IPv6** | Connect scans and discovery. |
+| **Web UI** | Dark-mode single-page app and JSON API, served from the same binary with raw POSIX sockets. No web framework. |
+
+## Install
+
+### Build from source
+
+Requirements: Linux, GCC, and the Goose compiler 2026.3 or newer. Python 3 is only needed for the Nmap database importers.
+
+```sh
+git clone https://github.com/bo3tb1/Almap.git
+cd Almap/almap
+export GOOSE_STDLIB=/path/to/goose/stdlib
+
+goose check almap.goose
+goose build almap.goose --cc gcc -o almap
+bash tools/build_plugins.sh        # optional: rebuild the AlScript plugins from plugins/*.c
+./almap --help
+```
+
+## Quick start
+
+```sh
+# Unprivileged connect scan
+./almap -t 127.0.0.1 -p 22,80,443
+
+# Fast async sweep of a /24
+./almap -t 192.168.1.0/24 -p 1-1024 --fast --timeout 500
+
+# Raw SYN scan with OS and service detection (root or CAP_NET_RAW)
+sudo ./almap -t 192.168.1.10 -p 1-1024 --scan syn --os
+
+# Discovery only
+sudo ./almap -t 192.168.1.0/24 --discover
+
+# UDP
+sudo ./almap -t 192.168.1.10 -p 53,123,161 --scan udp
+
+# Run a plugin on open ports, get JSON
+./almap -t 127.0.0.1 -p 80 --script ./plugins/http_title.so --json
+```
+
+Instead of `sudo`, you can grant raw-socket access once:
+
+```sh
+sudo setcap cap_net_raw+ep ./almap
+```
+
+## Common options
+
+| Flag | Description |
+|---|---|
+| `-t <targets>` | IPv4, IPv6 or CIDR, comma-separated (up to 64 entries) |
+| `-iL <file>` | Read targets from a file |
+| `-p <ports>` | `22,80,443`, `1-1024` or a mix |
+| `--scan <mode>` | `connect` (default), `syn` or `udp` (`-sU`) |
+| `--discover` | Host discovery only |
+| `--fast` | Async epoll engine (IPv4 connect only) |
+| `--service` / `--banners` | Version detection / banner grabbing |
+| `--os` | OS fingerprinting (needs `--scan syn`) |
+| `--script <so>` | Run an AlScript plugin on open ports |
+| `-f`, `--mtu`, `-D`, `--spoof-mac` | Evasion controls (raw SYN) |
+| `--sigdb <path>` / `--osdb <path>` | Service / OS signature database (default `~/.almap/signatures.db`, `~/.almap/os-signatures.db`) |
+| `--rate <n>` | Port attempts per second |
+| `--timeout <ms>` | Per-probe timeout (default 1000) |
+| `--workers <n>` | Thread-pool size (default 10) |
+| `--retries <n>` | Extra attempts after a timeout in `--fast` (0–10, default 3) |
+| `--json` / `--table` / `--xml` | Structured output |
+| `--web` / `--ui` `[--web-port N]` | Start the Web UI (default port 8080) |
+
+Run `./almap --help` for every flag and its rules. The full guide is in **[docs/GUIDE.md](docs/GUIDE.md)**.
+
+## Writing a plugin
+
+```c
+#include "../c/alscript.h"   /* when built from almap/plugins/ */
+
+int almap_script_run(AlScriptContext *ctx) {
+    /* ctx->target_ip, ctx->port, ctx->timeout_ms ...
+       write up to 1023 bytes of output; return 0 on success */
+    return 0;
+}
+```
+
+```sh
+gcc -std=c99 -Wall -Wextra -shared -fPIC -o myplugin.so myplugin.c
+./almap -t 10.0.0.5 -p 80 --script ./myplugin.so
+```
+
+Plugins run inside the scanner process with its full privileges, so only load code you trust.
+
+## Using Nmap's databases
+
+ALmap does not ship Nmap's data. The two importers convert your local copy:
+
+```sh
+python3 tools/import_nmap.py    /usr/share/nmap/nmap-service-probes -o ~/.almap/signatures.db
+python3 tools/import_nmap_os.py /usr/share/nmap/nmap-os-db          -o ~/.almap/os-signatures.db
+```
+
+Data you import from Nmap stays under Nmap's license.
+
+## Web UI
+
+```sh
+./almap --web            # http://127.0.0.1:8080
+```
+
+> **Security note:** In v5.0.0 the Web UI listens on all interfaces and has no authentication. Anyone who can reach the port can run scans as the user running ALmap. Run it only on a trusted machine, behind a firewall, and never as root on a shared network. Binding to localhost and token authentication are planned for the next release.
+
+## ALmap and Nmap
+
+| | ALmap | Nmap |
+|---|---|---|
+| Codebase | Small: Goose + C | Large: C++ / Lua |
+| Async connect engine | Yes, up to 10k in flight | Yes |
+| Scripting | Native C plugins | NSE (600+ Lua scripts) |
+| IPv6 | Connect + discovery | Full |
+| Platforms | Linux | Cross-platform |
+
+Use Nmap when you need its huge script library, full IPv6 coverage, or Windows and macOS support. Use ALmap when you want a small, predictable Linux scanner you can read, extend in C, and script through clean JSON.
+
+## Roadmap
+
+- [ ] Web UI bound to `127.0.0.1` by default, with token auth and a plugin allowlist
+- [ ] Published benchmarks against Nmap, masscan and RustScan
+- [ ] More AlScript plugins
+- [ ] Next.js dashboard (see [WEB_UI_PLAN.md](almap/WEB_UI_PLAN.md))
+- [ ] Debian / Arch packages
+
+## Legal
+
+Use ALmap only on systems you own or have explicit, written permission to test. Scanning, packet spoofing and evasion can disrupt networks and may be illegal where you live. Evasion features do not make a scan legal or undetectable. You are responsible for how you use this tool.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+Made by **Saher** · [@SaherSec](https://x.com/SaherSec)
+
+</div>
