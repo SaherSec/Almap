@@ -321,6 +321,40 @@ fn json_string(body: const u8[:], key: const u8[:], out: u8[>..]&) -> bool {
     return true;
 }
 
+// True when the string value of `key` (located exactly as json_string
+// does) contains a backslash escape. json_string refuses such a value;
+// callers use this to answer 400 instead of treating it as absent.
+fn json_string_escaped(body: const u8[:], key: const u8[:]) -> bool {
+    var qkey: u8[>..] = [];
+    qkey.push('"');
+    qkey.append(key);
+    qkey.push('"');
+    let kpos = find_substring(body, qkey);
+    if kpos < 0 { return false; }
+    var i = kpos + qkey.len;
+    while i < body.len && is_ws(body[i]) { i++; }
+    if i >= body.len || body[i] != ':' { return false; }
+    i++;
+    while i < body.len && is_ws(body[i]) { i++; }
+    if i >= body.len || body[i] != '"' { return false; }
+    i++;
+    while i < body.len && body[i] != '"' {
+        if body[i] == '\\' { return true; }
+        i++;
+    }
+    return false;
+}
+
+// Name of the first string field the API reads whose value contains an
+// escape the parser does not decode, or "" when none does.
+fn escaped_string_field(body: const u8[:]) -> const u8[:] {
+    if json_string_escaped(body, "targets") { return "targets"; }
+    if json_string_escaped(body, "ports") { return "ports"; }
+    if json_string_escaped(body, "scan_type") { return "scan_type"; }
+    if json_string_escaped(body, "script") { return "script"; }
+    return "";
+}
+
 fn json_bool(body: const u8[:], key: const u8[:]) -> bool, bool {
     var qkey: u8[>..] = [];
     qkey.push('"');
@@ -520,6 +554,16 @@ fn index_html(out: u8[>..]&) {
 // started; the reply comes later via ALMAP_EV_SCAN_DONE), else false
 // (the reply was sent; the caller closes the client).
 fn handle_scan(client: i32, body: const u8[:]) -> bool {
+    let bad_field = escaped_string_field(body);
+    if bad_field.len > 0 {
+        var err: u8[>..] = [];
+        var msg: u8[>..] = [];
+        msg.append("invalid string escape in field ");
+        msg.append(bad_field);
+        error_json(err, msg);
+        send_response(client, 400, "application/json", err);
+        return false;
+    }
     var targets: u8[>..] = [];
     var ports: u8[>..] = [];
     var scan_type: u8[>..] = [];

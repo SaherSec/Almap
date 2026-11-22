@@ -159,6 +159,15 @@ grep -q '{"error":"Content-Type must be application/json"}' /tmp/web_sec.out || 
 [ "$(code -H "$AUTH" -H "Content-Type: Application/JSON; charset=utf-8" -X POST "$SCAN_URL" -d '{"ports":"80"}')" = "400" ] || fail "JSON with charset param refused as non-JSON"
 echo "request size / Content-Type checks OK" >&2
 
+# A string value with an escape the parser does not decode is a 400 (it
+# used to be ignored, e.g. the scan ran without the plugin).
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d '{"targets":"127.0.0.1","ports":"80","script":"a\"b"}')" = "400" ] || fail "script with an escape not 400"
+grep -q '{"error":"invalid string escape in field script"}' /tmp/web_sec.out || fail "escape 400 body: $(cat /tmp/web_sec.out)"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d '{"targets":"127.0.0.1\u0000","ports":"80"}')" = "400" ] || fail "targets with \\u0000 not 400"
+grep -q '{"error":"invalid string escape in field targets"}' /tmp/web_sec.out || fail "escape 400 body: $(cat /tmp/web_sec.out)"
+[ "$(code -H "$AUTH" -H "$JSON" -X POST "$SCAN_URL" -d '{"targets":"127.0.0.1","ports":"80\n"}')" = "400" ] || fail "ports with \\n not 400"
+echo "JSON string escapes -> 400 OK" >&2
+
 # Slow clients must not block the server.
 now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
 status_ms() {

@@ -958,6 +958,12 @@ fn main() {
     expect(js == "syn", "webui json scan_type value");
     var jmissing: u8[>..] = [];
     expect(!webui::json_string("{\"a\":\"b\"}", "targets", jmissing), "webui json missing field");
+    expect(webui::escaped_string_field("{\"targets\":\"127.0.0.1\",\"ports\":\"80\",\"script\":\"a\\\"b\"}") == "script", "webui escape in script detected");
+    expect(webui::escaped_string_field("{\"targets\":\"127.0.0.1\\u0000\",\"ports\":\"80\"}") == "targets", "webui escape \\u0000 in targets detected");
+    expect(webui::escaped_string_field("{\"targets\":\"127.0.0.1\",\"ports\":\"80\\n\"}") == "ports", "webui escape \\n in ports detected");
+    expect(webui::escaped_string_field("{\"targets\":\"h\",\"ports\":\"1\",\"scan_type\":\"s\\t\"}") == "scan_type", "webui escape in scan_type detected");
+    expect(webui::escaped_string_field("{\"targets\":\"127.0.0.1\",\"ports\":\"80,443\",\"scan_type\":\"syn\",\"script\":\"x.so\",\"fast\":true}") == "", "webui plain strings have no escape");
+    expect(webui::escaped_string_field("{}") == "" && webui::escaped_string_field("") == "", "webui escape check on empty bodies");
     let jf_true, jf_true_found = webui::json_bool("{\"fast\":true,\"os\":false}", "fast");
     expect(jf_true_found && jf_true, "webui json bool true");
     let jf_false, jf_false_found = webui::json_bool("{\"fast\":true,\"os\":false}", "os");
