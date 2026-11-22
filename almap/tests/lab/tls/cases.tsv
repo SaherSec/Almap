@@ -1,0 +1,20 @@
+# check	role	port	expect   (see tests/lab/lib.sh)
+ssl-heartbleed	vuln	19101	match:^ssl-heartbleed: VULNERABLE \(CVE-2014-0160\)
+ssl-heartbleed	patched	19102	match:^ssl-heartbleed: NOT VULNERABLE
+ssl-heartbleed	patched	19103	match:^ssl-heartbleed: NOT VULNERABLE
+ssl-heartbleed	fixture	19090	fixture:neg-plain-http:match:^ssl-heartbleed: INFO not tested
+ssl-heartbleed	fixture	19090	fixture:neg-plain-http:nomatch:VULNERABLE
+ssl-ccs-injection	vuln	19101	match:^ssl-ccs-injection: VULNERABLE \(CVE-2014-0224\)
+ssl-ccs-injection	patched	19102	match:^ssl-ccs-injection: NOT VULNERABLE
+ssl-ccs-injection	patched	19103	match:^ssl-ccs-injection: NOT VULNERABLE
+ssl-ccs-injection	fixture	19090	fixture:neg-plain-http:match:^ssl-ccs-injection: INFO not tested
+ssl-ccs-injection	fixture	19090	fixture:neg-plain-http:nomatch:VULNERABLE
+ssl-poodle	vuln	19105	match:^ssl-poodle: VULNERABLE \(CVE-2014-3566\): SSLv3 negotiated with the CBC suite
+ssl-poodle	patched	19102	match:^ssl-poodle: NOT VULNERABLE
+ssl-poodle	vuln	19101	match:^ssl-poodle: NOT VULNERABLE
+ssl-poodle	fixture	19090	fixture:neg-plain-http:match:^ssl-poodle: INFO not tested
+ssl-poodle	fixture	19090	fixture:neg-plain-http:nomatch:VULNERABLE
+ssl-enum-ciphers	service	19103	match:^ssl-enum-ciphers: TLSv1\.0: TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA; TLSv1\.1: TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA; TLSv1\.2: TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 \(probed
+ssl-enum-ciphers	service	19105	match:^ssl-enum-ciphers: SSLv3: TLS_RSA_WITH_3DES_EDE_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA; TLSv1\.0: TLS_RSA_WITH_3DES_EDE_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA \(probed
+ssl-dh-params	service	19104	match:^ssl-dh-params: DHE group 1024 bits \(TLSv1\.2, TLS_DHE_RSA_WITH_AES_128_GCM_SHA256\)
+ssl-dh-params	service	19102	match:^ssl-dh-params: DHE group 2048 bits

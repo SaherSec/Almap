@@ -3,12 +3,12 @@
 Generated from `almap/plugins/MANIFEST.tsv` by `almap/tools/gen_plugins_md.py`. Do not edit by hand.
 
 ```
-Verified (lab): 0
+Verified (lab): 5
 Verified (captured fixture): 0
 Detected (derived fixture): 0
-Experimental: 623
+Experimental: 612
 
-Total checks: 623
+Total checks: 617
 ```
 
 The four counts are separate and are never added together.
@@ -31,7 +31,7 @@ The four counts are separate and are never added together.
 | services | 0 | 0 | 0 | 145 | 145 |
 | smb | 0 | 0 | 0 | 54 | 54 |
 | ssh | 0 | 0 | 0 | 13 | 13 |
-| tls | 0 | 0 | 0 | 11 | 11 |
+| tls | 5 | 0 | 0 | 0 | 5 |
 
 ## All checks
 
@@ -588,17 +588,11 @@ The four counts are separate and are never added together.
 | ssh2-enum-algos-2 | ssh | experimental | experimental | - |
 | ssh_hostkey | ssh | experimental | experimental | - |
 | ssh_version | ssh | experimental | experimental | - |
-| ssl-ccs-injection | tls | experimental | experimental | - |
-| ssl-ccs-injection-2 | tls | experimental | experimental | - |
-| ssl-dh-params | tls | experimental | experimental | - |
-| ssl-dh-params-2 | tls | experimental | experimental | - |
-| ssl-enum-ciphers | tls | experimental | experimental | - |
-| ssl-enum-ciphers-2 | tls | experimental | experimental | - |
-| ssl-heartbleed | tls | experimental | experimental | - |
-| ssl-heartbleed-2 | tls | experimental | experimental | - |
-| ssl-heartbleed-full | tls | experimental | experimental | - |
-| ssl-poodle | tls | experimental | experimental | - |
-| ssl-poodle-2 | tls | experimental | experimental | - |
+| ssl-ccs-injection | tls | vuln | lab | lab/tls |
+| ssl-dh-params | tls | info | lab | lab/tls |
+| ssl-enum-ciphers | tls | info | lab | lab/tls |
+| ssl-heartbleed | tls | vuln | lab | lab/tls |
+| ssl-poodle | tls | vuln | lab | lab/tls |
 | svc-activemq-5 | services | experimental | experimental | - |
 | svc-afp-5 | services | experimental | experimental | - |
 | svc-arangodb-5 | services | experimental | experimental | - |

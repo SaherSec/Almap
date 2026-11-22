@@ -1,0 +1,6 @@
+# role	containerPort	hostPort (always published on 127.0.0.1)
+vuln	443	19101
+patched	4433	19102
+patched	4434	19103
+patched	4435	19104
+vuln	8443	19105

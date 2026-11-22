@@ -1,0 +1,79 @@
+# TLS lab: one pod, five servers on 127.0.0.1 (host ports 19101-19105).
+#   19101  OpenSSL 1.0.1c (nginx): Heartbleed + CCS injection vulnerable, TLS 1.0-1.2
+#   19105  the same image with SSLv3 enabled (CBC suites): POODLE vulnerable
+#   19102  OpenSSL 3.5.9 s_server, defaults: patched
+#   19103  OpenSSL 3.5.9, TLS 1.0-1.2, a known cipher list (ssl-enum-ciphers)
+#   19104  OpenSSL 3.5.9, DHE only with a 1024-bit group (ssl-dh-params)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: almaplab-tls-nginx
+data:
+  nginx.conf: |
+    user www-data;
+    worker_processes 1;
+    pid /run/nginx.pid;
+    events { worker_connections 64; }
+    http {
+      server {
+        listen 8443 ssl;
+        ssl_certificate /etc/ssl/nginx/local.crt;
+        ssl_certificate_key /etc/ssl/nginx/local.key;
+        ssl_protocols SSLv3 TLSv1;
+        ssl_ciphers AES128-SHA:DES-CBC3-SHA;
+        ssl_prefer_server_ciphers on;
+        location / { return 200 "ok\n"; }
+      }
+    }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: almaplab-tls
+spec:
+  restartPolicy: Never
+  volumes:
+    - name: sslv3-conf
+      configMap:
+        name: almaplab-tls-nginx
+  containers:
+    - name: vuln
+      image: docker.io/vulhub/openssl@sha256:3cf76769b6e33f45479e8bacd70d7c5c2bd8b8c4d5428ae3f613b1145a4a1c47
+      ports:
+        - containerPort: 443
+          hostPort: 19101
+          hostIP: 127.0.0.1
+    - name: vuln-sslv3
+      image: docker.io/vulhub/openssl@sha256:3cf76769b6e33f45479e8bacd70d7c5c2bd8b8c4d5428ae3f613b1145a4a1c47
+      volumeMounts:
+        - name: sslv3-conf
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      ports:
+        - containerPort: 8443
+          hostPort: 19105
+          hostIP: 127.0.0.1
+    - name: patched
+      image: docker.io/alpine/openssl@sha256:d8dc4590f53afae37bd990fde216b4d162e8f1b42c1b8c8beae27d6757054cc5
+      command: ["sh", "-c"]
+      args: ["openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/k.pem -out /tmp/c.pem -subj /CN=almaplab -days 1 >/dev/null 2>&1 && exec openssl s_server -accept 4433 -key /tmp/k.pem -cert /tmp/c.pem -www"]
+      ports:
+        - containerPort: 4433
+          hostPort: 19102
+          hostIP: 127.0.0.1
+    - name: ciphers
+      image: docker.io/alpine/openssl@sha256:d8dc4590f53afae37bd990fde216b4d162e8f1b42c1b8c8beae27d6757054cc5
+      command: ["sh", "-c"]
+      args: ["openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/k.pem -out /tmp/c.pem -subj /CN=almaplab -days 1 >/dev/null 2>&1 && exec openssl s_server -accept 4434 -key /tmp/k.pem -cert /tmp/c.pem -www -no_tls1_3 -min_protocol TLSv1 -cipher 'AES128-SHA:AES256-SHA:ECDHE-RSA-AES128-GCM-SHA256:@SECLEVEL=0'"]
+      ports:
+        - containerPort: 4434
+          hostPort: 19103
+          hostIP: 127.0.0.1
+    - name: dh1024
+      image: docker.io/alpine/openssl@sha256:d8dc4590f53afae37bd990fde216b4d162e8f1b42c1b8c8beae27d6757054cc5
+      command: ["sh", "-c"]
+      args: ["openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/k.pem -out /tmp/c.pem -subj /CN=almaplab -days 1 >/dev/null 2>&1 && openssl dhparam -out /tmp/dh1024.pem 1024 >/dev/null 2>&1 && exec openssl s_server -accept 4435 -key /tmp/k.pem -cert /tmp/c.pem -www -no_tls1_3 -cipher 'DHE-RSA-AES128-GCM-SHA256:@SECLEVEL=0' -dhparam /tmp/dh1024.pem"]
+      ports:
+        - containerPort: 4435
+          hostPort: 19104
+          hostIP: 127.0.0.1

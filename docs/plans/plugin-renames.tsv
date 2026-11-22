@@ -1,0 +1,7 @@
+# old	new	reason (every plugin renamed, merged or removed; copied into the CHANGELOG at release)
+ssl-heartbleed-2	ssl-heartbleed	numbered copy merged into the verified check
+ssl-heartbleed-full	ssl-heartbleed	merged; the OpenSSL-linked version had a false negative against a vulnerable server and is replaced by the pure-socket check
+ssl-ccs-injection-2	ssl-ccs-injection	numbered copy merged
+ssl-poodle-2	ssl-poodle	numbered copy merged
+ssl-enum-ciphers-2	ssl-enum-ciphers	numbered copy merged
+ssl-dh-params-2	ssl-dh-params	numbered copy merged
