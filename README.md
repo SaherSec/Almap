@@ -42,7 +42,7 @@ $ sudo ./almap -t 192.168.1.10 -p 22,80,443 --scan syn --os --service --json
 Requirements: Linux, GCC, and the Goose compiler 2026.3 or newer. Python 3 is only needed for the Nmap database importers.
 
 ```sh
-git clone https://github.com/bo3tb1/Almap.git
+git clone https://github.com/SaherSec/Almap.git
 cd Almap/almap
 export GOOSE_STDLIB=/path/to/goose/stdlib
 
