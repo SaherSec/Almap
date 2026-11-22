@@ -575,6 +575,65 @@ static void test_drain(void) {
     close(lfd);
 }
 
+/* A flooding client must not hold the loop: the drain is bounded per
+ * call and per deadline. 4 processes write 64 KiB blocks into the
+ * connection for 2 s; a request arrives at 600 ms and almap_http_next
+ * must hand it out then (not after the flood), with the flooded fd
+ * closed by the server. */
+static void test_drain_flood(void) {
+    int port = 0;
+    int lfd = new_listener(&port);
+    int srv, cli, i, base;
+    pid_t fl[4];
+    pid_t w;
+    static char blob[65536];
+    unsigned char buf[ALMAP_WEB_REQ_CAP];
+    int cfd = -1;
+    int kind = 0;
+    long long t0;
+
+    if (lfd < 0) {
+        expect("flood listener", 0);
+        return;
+    }
+    memset(blob, 'A', sizeof(blob));
+    base = count_fds(); /* includes the listener */
+    mk_pair(lfd, port, &srv, &cli);
+    almap_http_close_linger(srv);
+    for (i = 0; i < 4; i++) {
+        fl[i] = fork();
+        if (fl[i] == 0) {
+            long long end = now_ms() + 2000;
+
+            close(srv); /* the copy would keep the connection open */
+
+            while (now_ms() < end) {
+                if (send(cli, blob, sizeof(blob), MSG_NOSIGNAL) < 0) {
+                    break;
+                }
+            }
+            _exit(0);
+        }
+    }
+    t0 = now_ms();
+    w = spawn_writer(port, 600000, "GET /flood HTTP/1.1\r\n\r\n", NULL, NULL);
+    (void)almap_http_next(lfd, buf, (int)sizeof(buf), &cfd, &kind);
+    t0 = now_ms() - t0;
+    printf("     flood: next returned after %lld ms (srv=%d cfd=%d)\n", t0, srv, cfd);
+    expect("flood: request served on time (< 1200 ms)", kind == ALMAP_EV_REQUEST && t0 < 1200);
+    if (cfd >= 0) {
+        close(cfd);
+    }
+    for (i = 0; i < 4; i++) {
+        kill(fl[i], SIGKILL);
+        waitpid(fl[i], NULL, 0);
+    }
+    waitpid(w, NULL, 0);
+    close(cli);
+    expect("flood: no fd leak (drained fd closed)", count_fds() == base);
+    close(lfd);
+}
+
 int main(int argc, char **argv) {
     if (argc > 2 && strcmp(argv[1], "-t") == 0) {
         return fake_scanner(argv[2]);
@@ -584,6 +643,7 @@ int main(int argc, char **argv) {
     test_next();
     test_scan();
     test_drain();
+    test_drain_flood();
     check_cl("absent", H(""), 0, 0);
     check_cl("12", H("Content-Length: 12\r\n"), 1, 12);
     check_cl("zero", H("Content-Length: 0\r\n"), 1, 0);

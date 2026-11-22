@@ -562,6 +562,61 @@ done
 kill "$DCURL" 2>/dev/null; wait "$DCURL" 2>/dev/null
 [ "$GONE" = 1 ] || { kill -9 "$DCHILD" 2>/dev/null; fail "scan child survived a kill -9 of the server"; }
 echo "server killed: scan child gone within 1 s OK" >&2
+
+# 9. A client that floods bytes after a 413-triggering head must not hold
+# the event loop (drain is bounded per call and by its deadline).
+flooder() { # PORT SECONDS: prints ms until the server's close is seen
+python3 -c '
+import socket, sys, time
+port = int(sys.argv[1])
+s = socket.create_connection(("127.0.0.1", port))
+s.settimeout(3)
+s.sendall(b"POST /x HTTP/1.1\r\nHost: 127.0.0.1:" + sys.argv[1].encode() + b"\r\nContent-Length: 8192\r\n\r\n")
+blob = b"A" * 65536
+# Several senders share the socket so the flood outruns the server.
+import os
+kids = []
+for _ in range(3):
+    pid = os.fork()
+    if pid == 0:
+        end = time.time() + float(sys.argv[2])
+        try:
+            while time.time() < end:
+                s.sendall(blob)
+        except OSError:
+            pass
+        os._exit(0)
+    kids.append(pid)
+t0 = time.time()
+closed = "never"
+while time.time() - t0 < float(sys.argv[2]):
+    try:
+        s.sendall(blob)
+    except OSError:
+        closed = "%d" % ((time.time() - t0) * 1000)
+        break
+print(closed)
+' "$@"
+}
+flood_round() { # NFLOODERS
+    local n=$1 i pids=() ms
+    for i in $(seq 1 "$n"); do
+        flooder "$WEB_PORT" 1.5 >"$TMPD/flood$i.out" &
+        pids+=($!)
+    done
+    sleep 0.1
+    ms=$(status_ms) || fail "/api/status failed during a ${n}-flooder drain"
+    [ "$ms" -lt 500 ] || fail "status took ${ms}ms with $n flooding 413 clients (want < 500)"
+    wait "${pids[@]}"
+    for i in $(seq 1 "$n"); do
+        local c
+        c=$(cat "$TMPD/flood$i.out")
+        [ "$c" != "never" ] && [ "$c" -lt 1000 ] || fail "flooder $i not closed by the server within 1 s (got '$c')"
+    done
+    echo "$n flooding 413 client(s): status in ${ms}ms, closed by server OK" >&2
+}
+flood_round 1
+flood_round 4
 echo "scan lifecycle OK" >&2
 
 echo "ok: web ui / status / scan / errors / bind / token / host+origin / plugin names" >&2

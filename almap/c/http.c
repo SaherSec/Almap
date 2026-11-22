@@ -401,6 +401,7 @@ static int slot_state(struct pending *p, int limit, int *req_len) {
  * almap_http_next. */
 #define ALMAP_DRAIN_MAX 32
 #define ALMAP_DRAIN_MS 200
+#define ALMAP_DRAIN_BUDGET (16 * 1024) /* bytes per fd per call */
 static int g_drain_fd[ALMAP_DRAIN_MAX];
 static long long g_drain_end[ALMAP_DRAIN_MAX];
 static int g_drain_init;
@@ -457,20 +458,32 @@ static void drain_service(const struct pollfd *pf, const int *which, int n,
         if (g_drain_fd[i] != pf[k].fd || pf[k].revents == 0) {
             continue;
         }
-        for (;;) {
-            ssize_t r = recv(g_drain_fd[i], junk, sizeof(junk), MSG_DONTWAIT);
+        /* Bounded work per call: a flooding client must not hold the
+         * loop (the level-triggered poll brings us back at once). */
+        {
+            size_t budget = ALMAP_DRAIN_BUDGET;
 
-            if (r > 0) {
-                continue;
-            }
-            if (r < 0 && errno == EINTR) {
-                continue;
-            }
-            if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            while (budget > 0) {
+                ssize_t r;
+
+                if (g_drain_end[i] <= mono_ms()) {
+                    drain_close(i); /* deadline, even mid-flood */
+                    break;
+                }
+                r = recv(g_drain_fd[i], junk, sizeof(junk), MSG_DONTWAIT);
+                if (r > 0) {
+                    budget = budget > (size_t)r ? budget - (size_t)r : 0;
+                    continue;
+                }
+                if (r < 0 && errno == EINTR) {
+                    continue;
+                }
+                if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                    break;
+                }
+                drain_close(i); /* EOF or error */
                 break;
             }
-            drain_close(i); /* EOF or error */
-            break;
         }
     }
     for (i = 0; i < ALMAP_DRAIN_MAX; i++) {
